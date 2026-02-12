@@ -5,19 +5,31 @@ import cors from 'cors';
 import { initializeSocketHandlers } from './sockets/socketHandlers.js';
 import { initializeGrid } from './utils/gridManager.js';
 
-// Load environment variables
+// Configuration
 const PORT = process.env.PORT || 3001;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
+// Allowed origins - whitelist instead of wildcard for security
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  FRONTEND_URL
+];
+
 const app = express();
 const httpServer = createServer(app);
 
-// CORS configuration for Socket.io
-// In production, restrict to specific frontend URL
+// Socket.io configuration with secure CORS
 const io = new Server(httpServer, {
   cors: {
-    origin: NODE_ENV === 'production' ? FRONTEND_URL : '*',
+    origin: (origin, callback) => {
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS not allowed'));
+      }
+    },
     methods: ['GET', 'POST'],
     credentials: false
   }
@@ -41,23 +53,15 @@ app.get('/api/health', (req, res) => {
 
 // Start server with error handling & graceful shutdown
 const server = httpServer.listen(PORT, () => {
-  // Only log detailed config in development
   if (NODE_ENV === 'development') {
-    console.log(`\n${'='.repeat(50)}`);
-    console.log(`✅ Server running on http://localhost:${PORT}`);
-    console.log(`📡 WebSocket server running on http://localhost:${PORT}`);
-    console.log(`🔧 Environment: ${NODE_ENV}`);
-    console.log(`🌐 Frontend URL: ${FRONTEND_URL}`);
-    console.log(`${'='.repeat(50)}\n`);
-  } else {
-    console.log(`✅ Server running on port ${PORT} in ${NODE_ENV} mode`);
+    console.log(`Server running on port ${PORT}`);
   }
 });
 
-// Handle port in use error
+// Error handling
 server.on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
-    console.error(`❌ Port ${PORT} is already in use`);
+    console.error(`Port ${PORT} is already in use`);
     process.exit(1);
   }
   throw error;
@@ -65,6 +69,5 @@ server.on('error', (error) => {
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('⏹️  Shutting down gracefully...');
   server.close();
 });

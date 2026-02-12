@@ -9,10 +9,12 @@ dist/
 build/
 .next/
 
-# Environment variables
+# Environment variables (CRITICAL - NEVER COMMIT)
 .env
 .env.local
 .env.*.local
+.env.production.local
+*.env
 
 # IDE and editor
 .vscode/
@@ -48,3 +50,6 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+.vite/
+dist/
+**/dist/
