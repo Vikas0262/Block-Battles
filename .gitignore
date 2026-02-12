@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Production builds
+dist/
+build/
+.next/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE and editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-workspace
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+*.log
+
+# OS files
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Misc
+.cache/
+.eslintcache
+.prettierignore
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+*.temp
