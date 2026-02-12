@@ -41,12 +41,17 @@ app.get('/api/health', (req, res) => {
 
 // Start server with error handling & graceful shutdown
 const server = httpServer.listen(PORT, () => {
-  console.log(`\n${'='.repeat(50)}`);
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-  console.log(`📡 WebSocket server running on http://localhost:${PORT}`);
-  console.log(`🔧 Environment: ${NODE_ENV}`);
-  console.log(`🌐 Frontend URL: ${FRONTEND_URL}`);
-  console.log(`${'='.repeat(50)}\n`);
+  // Only log detailed config in development
+  if (NODE_ENV === 'development') {
+    console.log(`\n${'='.repeat(50)}`);
+    console.log(`✅ Server running on http://localhost:${PORT}`);
+    console.log(`📡 WebSocket server running on http://localhost:${PORT}`);
+    console.log(`🔧 Environment: ${NODE_ENV}`);
+    console.log(`🌐 Frontend URL: ${FRONTEND_URL}`);
+    console.log(`${'='.repeat(50)}\n`);
+  } else {
+    console.log(`✅ Server running on port ${PORT} in ${NODE_ENV} mode`);
+  }
 });
 
 // Handle port in use error

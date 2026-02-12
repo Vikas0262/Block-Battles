@@ -1,15 +1,24 @@
 import { io } from 'socket.io-client';
 
-// Auto-detect backend URL from env or compute from current location
+// Get backend URL from environment variable
+// In development: env var can be set in .env, otherwise derives from current location
+// In production: must be set in .env at build time
 const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || 
-                   window.location.origin.replace(':5173', ':3001') || 
-                   'https://shared-grid-game.onrender.com';
+                   (window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
+                     ? window.location.origin.replace(':5173', ':3001')
+                     : null);
+
+if (!SOCKET_URL) {
+  throw new Error('Backend URL not configured. Set VITE_BACKEND_URL in .env file');
+}
 
 let socket = null;
 const listeners = new Set(); // Track registered listeners to prevent duplicates
 
-// Log configuration
-console.log(`🔗 Backend URL: ${SOCKET_URL}`);
+// Log configuration only in development
+if (import.meta.env.DEV) {
+  console.log(`🔗 Backend URL configured from environment`);
+}
 
 // Connect to backend
 export const connectSocket = () => {
