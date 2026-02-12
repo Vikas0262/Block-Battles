@@ -1,10 +1,15 @@
 import { io } from 'socket.io-client';
 
-// Auto-detect backend URL (works on localhost, mobile, any IP)
-const SOCKET_URL = window.location.origin.replace(':5173', ':3001') || 'http://localhost:3001';
+// Auto-detect backend URL from env or compute from current location
+const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || 
+                   window.location.origin.replace(':5173', ':3001') || 
+                   'http://localhost:3001';
 
 let socket = null;
 const listeners = new Set(); // Track registered listeners to prevent duplicates
+
+// Log configuration
+console.log(`🔗 Backend URL: ${SOCKET_URL}`);
 
 // Connect to backend
 export const connectSocket = () => {

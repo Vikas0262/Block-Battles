@@ -5,13 +5,18 @@ import cors from 'cors';
 import { initializeSocketHandlers } from './sockets/socketHandlers.js';
 import { initializeGrid } from './utils/gridManager.js';
 
+// Load environment variables
+const PORT = process.env.PORT || 3001;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
 const app = express();
 const httpServer = createServer(app);
 
 // CORS configuration for Socket.io - Allow all origins for development
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',  // Allow all origins (development only)
+    origin: '*',  // Allow all origins for dev (use FRONTEND_URL in production)
     methods: ['GET', 'POST'],
     credentials: false
   }
@@ -34,10 +39,13 @@ app.get('/api/health', (req, res) => {
 });
 
 // Start server with error handling & graceful shutdown
-const PORT = process.env.PORT || 3001;
 const server = httpServer.listen(PORT, () => {
+  console.log(`\n${'='.repeat(50)}`);
   console.log(`✅ Server running on http://localhost:${PORT}`);
   console.log(`📡 WebSocket server running on http://localhost:${PORT}`);
+  console.log(`🔧 Environment: ${NODE_ENV}`);
+  console.log(`🌐 Frontend URL: ${FRONTEND_URL}`);
+  console.log(`${'='.repeat(50)}\n`);
 });
 
 // Handle port in use error
