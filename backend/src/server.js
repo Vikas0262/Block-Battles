@@ -13,10 +13,11 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const app = express();
 const httpServer = createServer(app);
 
-// CORS configuration for Socket.io - Allow all origins for development
+// CORS configuration for Socket.io
+// In production, restrict to specific frontend URL
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',  // Allow all origins for dev (use FRONTEND_URL in production)
+    origin: NODE_ENV === 'production' ? FRONTEND_URL : '*',
     methods: ['GET', 'POST'],
     credentials: false
   }
