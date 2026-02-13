@@ -14,7 +14,6 @@ import {
   onClaimError,
   onUserDisconnected
 } from './utils/socket';
-import './App.css';
 
 function App() {
   const [grid, setGrid] = useState([]); // Grid state
@@ -118,13 +117,18 @@ function App() {
   }, [showToast]);
 
   return (
-    <div className="app">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex flex-col">
       {/* Name Input Prompt */}
       {showNamePrompt && (
-        <div className="modal-overlay">
-          <div className="name-prompt">
-            <h2>Welcome to Shared Grid! 🎮</h2>
-            <form onSubmit={handleNameSubmit}>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12 text-center min-w-[90%] md:min-w-[400px] max-w-md animate-scale-up">
+            <div className="mb-6">
+              <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                Welcome! 🎮
+              </h2>
+              <p className="text-gray-600 text-sm md:text-base">Join the Shared Grid Game</p>
+            </div>
+            <form onSubmit={handleNameSubmit} className="space-y-4">
               <input
                 type="text"
                 placeholder="Enter your name..."
@@ -132,8 +136,15 @@ function App() {
                 onChange={(e) => setUserName(e.target.value)}
                 autoFocus
                 maxLength="20"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-base focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200"
               />
-              <button type="submit">Join Game</button>
+              <button 
+                type="submit"
+                className="w-full px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold text-lg hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!userName.trim()}
+              >
+                Join Game
+              </button>
             </form>
           </div>
         </div>
@@ -142,37 +153,56 @@ function App() {
       {/* Main App */}
       {!showNamePrompt && userInfo && (
         <>
-          <header className="header">
-            <h1>🎮 Shared Grid Game</h1>
-            <div className="header-stats">
-              <span>📍 Players: {users.length}</span>
-              <span>📦 Total Blocks: 100</span>
+          <header className="bg-white/95 backdrop-blur-sm shadow-lg sticky top-0 z-40">
+            <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6">
+              <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent text-center mb-3">
+                🎮 Shared Grid Game
+              </h1>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 md:gap-8 text-gray-700 font-medium text-sm md:text-base">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">📍</span>
+                  <span>Players: <span className="font-bold text-indigo-600">{users.length}</span></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">📦</span>
+                  <span>Total Blocks: <span className="font-bold text-purple-600">100</span></span>
+                </div>
+              </div>
             </div>
           </header>
 
-          <div className="container">
-            <aside className="sidebar">
+          <div className="flex-1 flex flex-col lg:flex-row gap-4 md:gap-6 p-4 md:p-6 max-w-7xl mx-auto w-full">
+            <aside className="w-full lg:w-72 bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-5 md:p-6 h-fit">
               <UserInfo user={userInfo} />
               
-              <div className="players-list">
-                <h3>👥 Players Online</h3>
-                <div className="players">
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <span>👥</span>
+                  <span>Players Online</span>
+                  <span className="ml-auto text-sm bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">{users.length}</span>
+                </h3>
+                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                   {users.map(u => (
                     <div 
                       key={u.id} 
-                      className="player-item"
+                      className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-150 transition-all duration-200 border-l-4"
                       style={{ borderLeftColor: u.color }}
                     >
-                      <span className="player-color" style={{ backgroundColor: u.color }}></span>
-                      <span className="player-name">{u.name}</span>
-                      <span className="player-blocks">{u.blocksOwned}</span>
+                      <div 
+                        className="w-10 h-10 rounded-lg shadow-md flex-shrink-0 ring-2 ring-white" 
+                        style={{ backgroundColor: u.color }}
+                      ></div>
+                      <span className="flex-1 font-medium text-gray-800 text-sm truncate">{u.name}</span>
+                      <span className="text-xs text-gray-600 bg-white px-2 py-1 rounded-md font-semibold shadow-sm">
+                        {u.blocksOwned || 0}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
             </aside>
 
-            <main className="main-content">
+            <main className="flex-1 bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-5 md:p-8">
               <Grid 
                 grid={grid} 
                 userInfo={userInfo}
