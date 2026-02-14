@@ -26,7 +26,7 @@ const GridCell = memo<GridCellProps>(({ block, isSelected, isClaiming, onClaim }
     <button
       onClick={handleClick}
       className={`
-        rounded-lg flex items-center justify-center font-bold text-white text-lg
+        rounded-lg flex flex-col items-center justify-center font-bold text-white
         transition-all duration-200 relative overflow-hidden
         ${!block.owner ? 'grid-cell cursor-pointer' : 'grid-cell-claimed cursor-default'}
       `}
@@ -39,9 +39,14 @@ const GridCell = memo<GridCellProps>(({ block, isSelected, isClaiming, onClaim }
       disabled={!!block.owner || isClaiming}
     >
       {block.owner && (
-        <span className="relative z-10 drop-shadow-lg text-sm md:text-lg">
-          {block.userName?.substring(0, 2).toUpperCase()}
-        </span>
+        <>
+          <span className="relative z-10 drop-shadow-lg text-xs md:text-sm lg:text-base font-black">
+            {block.userName?.substring(0, 1).toUpperCase()}
+          </span>
+          <span className="relative z-10 drop-shadow-lg text-xs hidden md:block font-semibold">
+            {block.userName}
+          </span>
+        </>
       )}
     </button>
   );

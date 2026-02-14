@@ -21,7 +21,7 @@ class GridManager {
       grid.push({
         blockId: i,
         owner: null,       // User who owns this block
-        color: '#1a1a2e',  // Darker gray for unclaimed
+        color: '#3a3f4d',  // Lighter neutral gray for unclaimed
         userName: null,
         claimedAt: null
       });
@@ -45,7 +45,7 @@ class GridManager {
     userBlockIds.forEach(blockId => {
       const block = this.grid[blockId];
       block.owner = null;
-      block.color = '#1a1a2e';
+      block.color = '#3a3f4d';
       block.userName = null;
       block.claimedAt = null;
     });

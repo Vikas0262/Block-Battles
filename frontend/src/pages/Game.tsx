@@ -35,9 +35,8 @@ export const Game: React.FC = () => {
   const [selectedBlockId, setSelectedBlockId] = useState<number | null>(null);
   const [isClaming, setIsClaiming] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [leaderboard, setLeaderboard] = useState<GridUser[]>([]);
   const [showRulesModal, setShowRulesModal] = useState(true);
+  const [cooldownUntil, setCooldownUntil] = useState<number>(0);
 
   // Redirect if no user
   useEffect(() => {
@@ -50,6 +49,12 @@ export const Game: React.FC = () => {
   useEffect(() => {
     const socket = getSocket();
     let isMounted = true;
+
+    // Handle browser/tab close
+    const handleBeforeUnload = () => {
+      socket.emit('userLeave', { userId: user?.userId });
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     const handleConnect = () => {
       if (isMounted) setIsConnected(true);
@@ -98,6 +103,12 @@ export const Game: React.FC = () => {
       if (!isMounted) return;
       setClaimError(data.message);
       setIsClaiming(false);
+      
+      // If this is a cooldown error, set cooldown until
+      if (data.isCooldown && data.remainingCooldown) {
+        setCooldownUntil(Date.now() + data.remainingCooldown);
+      }
+      
       setTimeout(() => isMounted && setClaimError(null), 3000);
     };
 
@@ -142,14 +153,10 @@ export const Game: React.FC = () => {
       setGrid((prevGrid) =>
         prevGrid.map((block) =>
           block.owner === data.userId
-            ? { ...block, owner: null, color: '#1a1a2e', userName: null, claimedAt: null }
+            ? { ...block, owner: null, color: '#3a3f4d', userName: null, claimedAt: null }
             : block
         )
       );
-    };
-
-    const handleLeaderboard = (data: any) => {
-      if (isMounted) setLeaderboard(data);
     };
 
     // Register all event listeners
@@ -162,7 +169,6 @@ export const Game: React.FC = () => {
     socket.on('userJoined', handleUserJoined);
     socket.on('userReconnected', handleUserReconnected);
     socket.on('userDisconnected', handleUserDisconnected);
-    socket.on('leaderboard', handleLeaderboard);
 
     // Emit userJoin or reconnect
     const sessionId = getSessionId();
@@ -179,6 +185,7 @@ export const Game: React.FC = () => {
     // Cleanup all event listeners on unmount
     return () => {
       isMounted = false;
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
       socket.off('gridState', handleGridState);
@@ -188,19 +195,40 @@ export const Game: React.FC = () => {
       socket.off('userJoined', handleUserJoined);
       socket.off('userReconnected', handleUserReconnected);
       socket.off('userDisconnected', handleUserDisconnected);
-      socket.off('leaderboard', handleLeaderboard);
     };
   }, [user]);
+
+  // Cooldown timer effect - updates UI periodically
+  useEffect(() => {
+    if (cooldownUntil <= 0) return;
+
+    const interval = setInterval(() => {
+      if (Date.now() >= cooldownUntil) {
+        setCooldownUntil(0);
+        clearInterval(interval);
+      }
+    }, 50); // Update every 50ms for smooth visual feedback
+
+    return () => clearInterval(interval);
+  }, [cooldownUntil]);
 
   // Memoized block click handler
   const handleBlockClick = useCallback(
     (blockId: number) => {
       if (isClaming) return;
 
+      // Check if cooldown is still active
+      if (Date.now() < cooldownUntil) {
+        setClaimError('Cooldown active! Please wait...');
+        setTimeout(() => setClaimError(null), 2000);
+        return;
+      }
+
       const block = grid[blockId];
       if (block?.owner === null) {
         setIsClaiming(true);
         setSelectedBlockId(blockId);
+        setCooldownUntil(Date.now() + 500); // Optimistic cooldown
         const socket = getSocket();
         socket.emit('claimBlock', { blockId });
       } else {
@@ -208,16 +236,12 @@ export const Game: React.FC = () => {
         setTimeout(() => setClaimError(null), 3000);
       }
     },
-    [grid, isClaming]
+    [grid, isClaming, cooldownUntil]
   );
 
-  const handleLeaderboard = useCallback(() => {
-    const socket = getSocket();
-    socket.emit('getLeaderboard');
-    setShowLeaderboard(!showLeaderboard);
-  }, [showLeaderboard]);
-
   const handleLogout = () => {
+    const socket = getSocket();
+    socket.emit('userLeave', { userId: user?.userId });
     clearSessionId(); // Clear session on logout
     disconnectSocket();
     clearUser();
@@ -238,8 +262,8 @@ export const Game: React.FC = () => {
   }, [sortedUsers]);
 
   const displayLeaderboard = useMemo(() => {
-    return showLeaderboard ? (leaderboard.length > 0 ? leaderboard : topPlayers) : sortedUsers;
-  }, [showLeaderboard, leaderboard, topPlayers, sortedUsers]);
+    return sortedUsers;
+  }, [sortedUsers]);
 
   if (!user) return null;
 
@@ -257,7 +281,7 @@ export const Game: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: '#0A0A0A' }}>
+    <div className="min-h-screen" style={{ background: '#1a1a2e' }}>
       <RulesDialog isOpen={showRulesModal} onClose={() => setShowRulesModal(false)} />
 
       {/* Top Navigation Bar */}
@@ -265,33 +289,27 @@ export const Game: React.FC = () => {
         <div className="max-w-full lg:max-w-[1800px] mx-auto flex items-center justify-between gap-3 sm:gap-4">
           {/* Left: Logo */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-pink-500 to-red-600 flex items-center justify-center text-lg sm:text-xl font-bold shadow-lg neon-border">
-              ⚡
-            </div>
+            
             <span className="text-lg sm:text-2xl font-bold text-white tracking-tight">BlockBattles</span>
           </div>
 
-          {/* Center: Player Badge */}
-          <div className="hidden sm:flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-2xl glass-card flex-1 justify-center">
-            <div
-              className="w-10 sm:w-12 h-10 sm:h-12 rounded-lg sm:rounded-xl shadow-lg"
-              style={{ 
-                backgroundColor: user.color,
-                boxShadow: `0 4px 12px ${user.color}60`
-              }}
-            />
-            <div className="hidden md:block">
-              <p className="text-xs text-gray-400">Player</p>
-              <p className="text-sm sm:text-lg font-bold text-white">{user.userName}</p>
-            </div>
-            <div className="hidden lg:block ml-2 sm:ml-4 pl-2 sm:pl-4 border-l border-white/20">
-              <p className="text-xs text-gray-400">Captured</p>
-              <p className="text-sm sm:text-lg font-bold text-pink-400">{currentUserBlocks} tiles</p>
-            </div>
-          </div>
-
-          {/* Right: Status & Actions */}
+          {/* Right: Player Badge & Status & Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Simple Player Badge - Compact */}
+            <div className="flex items-center gap-2 px-2 sm:px-4 py-2 rounded-lg glass-card" style={{ background: 'rgba(255, 255, 255, 0.08)' }}>
+              <div
+                className="w-8 sm:w-9 h-8 sm:h-9 rounded-md shadow-lg"
+                style={{ 
+                  backgroundColor: user.color,
+                  boxShadow: `0 4px 12px ${user.color}60`
+                }}
+              />
+              <div className="block">
+                <p className="text-xs sm:text-xs text-gray-400">{user.userName}</p>
+                <p className="text-xs sm:text-sm font-bold text-pink-400">{currentUserBlocks} tiles</p>
+              </div>
+            </div>
+
             {/* Online Status */}
             <div className="hidden sm:flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-lg sm:rounded-xl glass-card">
               <div className={`w-2 sm:w-3 h-2 sm:h-3 rounded-full ${isConnected ? 'bg-green-500 pulse-glow' : 'bg-red-500'}`} />
@@ -299,24 +317,6 @@ export const Game: React.FC = () => {
                 {isConnected ? 'Online' : 'Offline'}
               </span>
             </div>
-
-            {/* Top 10 Button */}
-            <Button
-              onClick={handleLeaderboard}
-              variant="secondary"
-              className="px-2 sm:px-5 py-2 text-xs sm:text-base whitespace-nowrap"
-              style={{
-                background: showLeaderboard 
-                  ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)'
-                  : 'rgba(251, 191, 36, 0.15)',
-                border: '1px solid rgba(251, 191, 36, 0.3)',
-                boxShadow: showLeaderboard 
-                  ? '0 4px 12px rgba(251, 191, 36, 0.4)' 
-                  : '0 2px 8px rgba(251, 191, 36, 0.2)'
-              }}
-            >
-              🏆 <span className="hidden sm:inline">Top 10</span>
-            </Button>
 
             {/* Exit Button */}
             <Button
@@ -338,38 +338,58 @@ export const Game: React.FC = () => {
       {/* Main Content */}
       <div className="max-w-full lg:max-w-[1800px] mx-auto px-3 sm:px-6 md:px-8 lg:px-16 py-4 md:py-8">
         {/* Title Section */}
-        <div className="text-center mb-4 md:mb-8">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-2 md:mb-4 neon-text">
-            Conquer the Grid
-          </h1>
-          <div className="flex items-center gap-2 text-sm sm:text-base">
-            <span className="text-green-400">👥</span>
-            <span className="text-gray-300">Online:</span>
-            <span className="font-bold text-white">{users.length} Players</span>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 md:mb-8">
+          <div>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white">
+              Conquer the Grid
+            </h1>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 sm:gap-6">
+            {/* Online Players - Simple Text */}
+            <div className="flex items-center gap-2 text-sm sm:text-base">
+              <span className="text-green-400">👥</span>
+              <span className="text-gray-300">Online:</span>
+              <span className="font-bold text-white">{users.length} Players</span>
+            </div>
+            {/* Cooldown Status - Simple Text */}
+            <div className="flex items-center gap-2 text-sm sm:text-base">
+              <span className="text-gray-300">Status:</span>
+              <span
+                style={{
+                  fontWeight: 600,
+                  color: Date.now() < cooldownUntil ? '#fbbf24' : '#22c55e'
+                }}
+              >
+                {Date.now() < cooldownUntil 
+                  ? `🛡️ Cooldown: ${Math.ceil((cooldownUntil - Date.now()) / 100)}0ms`
+                  : '✓ Ready to claim'
+                }
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Error Message */}
         {claimError && (
-          <div className="mx-2 sm:mx-4 md:max-w-4xl md:mx-auto mb-4 md:mb-6 px-4 md:px-6 py-3 md:py-4 rounded-xl md:rounded-2xl text-center text-sm sm:text-base font-semibold"
+          <div className="mx-2 sm:mx-4 md:max-w-4xl md:mx-auto mb-4 md:mb-6 px-4 md:px-6 py-2 md:py-3 rounded-lg text-center text-sm sm:text-base font-medium"
             style={{
-              background: 'rgba(239, 68, 68, 0.2)',
-              border: '1px solid rgba(239, 68, 68, 0.4)',
-              color: '#fca5a5'
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              color: '#ffffff'
             }}>
-            ⚠️ {claimError}
+            {claimError}
           </div>
         )}
 
         {/* Main Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-4 lg:gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-4 lg:gap-8">
           {/* Grid Container */}
           <div className="glass-card rounded-3xl p-3 sm:p-6 md:p-8">
             <div
               className="grid gap-1 sm:gap-2 mx-auto"
               style={{
                 gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
-                maxWidth: 'min(90vw, 100%)',
+                maxWidth: 'min(90vw, 550px)',
                 width: '100%',
                 aspectRatio: '1 / 1',
               }}
@@ -386,116 +406,68 @@ export const Game: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Sidebar - Leaderboard */}
-          <div className="glass-card rounded-3xl p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
-              <h2 className="text-lg sm:text-2xl font-black text-white">
-                {showLeaderboard ? '🏆 LEADERBOARD' : '👥 PLAYERS'}
-              </h2>
-              <div className="text-xs sm:text-sm text-gray-400">
-                {displayLeaderboard.length} {displayLeaderboard.length === 1 ? 'Player' : 'Players'}
-              </div>
-            </div>
-
-            <div className="space-y-2 sm:space-y-3 max-h-[400px] sm:max-h-[600px] overflow-y-auto pr-1 sm:pr-2" style={{ scrollbarGutter: 'stable' }}>
-              {displayLeaderboard.map((u, idx) => (
-                <PlayerCard
-                  key={u.id}
-                  player={u}
-                  isCurrentUser={u.id === user?.userId}
-                  rank={idx}
-                  showRank={showLeaderboard}
-                />
-              ))}
-
-              {displayLeaderboard.length === 0 && (
-                <div className="text-center py-12 text-gray-400">
-                  <p className="text-lg">No players yet</p>
-                  <p className="text-sm mt-2">Waiting for players to join...</p>
+          {/* Right Sidebar - Leaderboard & Top Players */}
+          <div className="flex flex-col gap-4 lg:gap-6">
+            {/* Players/Leaderboard Card */}
+            <div className="glass-card rounded-3xl p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <h2 className="text-lg sm:text-2xl font-black text-white">
+                  👥 PLAYERS
+                </h2>
+                <div className="text-xs sm:text-sm text-gray-400">
+                  {displayLeaderboard.length} {displayLeaderboard.length === 1 ? 'Player' : 'Players'}
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
+              </div>
 
-        {/* Bottom Stats Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-          {/* Your Tiles Card */}
-          <div className="glass-card rounded-3xl p-6">
-            <h3 className="text-xl font-bold text-gray-300 mb-4">Your Tiles</h3>
-            <div className="flex items-center gap-6">
-              <div className="text-6xl font-black text-white">{currentUserBlocks}</div>
-              <div className="flex gap-2">
-                <div className="w-6 h-6 rounded" style={{ backgroundColor: '#ef4444' }} />
-                <div className="w-6 h-6 rounded" style={{ backgroundColor: '#3b82f6' }} />
-                <div className="w-6 h-6 rounded" style={{ backgroundColor: '#f59e0b' }} />
-                <div className="w-6 h-6 rounded" style={{ backgroundColor: '#22c55e' }} />
+              <div className="space-y-2 sm:space-y-3 overflow-y-auto pr-1 sm:pr-2" style={{ scrollbarGutter: 'stable', maxHeight: 'calc(100vh - 300px)' }}>
+                {displayLeaderboard.map((u, idx) => (
+                  <PlayerCard
+                    key={u.id}
+                    player={u}
+                    isCurrentUser={u.id === user?.userId}
+                    rank={idx}
+                    showRank={false}
+                  />
+                ))}
+
+                {displayLeaderboard.length === 0 && (
+                  <div className="text-center py-12 text-gray-400">
+                    <p className="text-lg">No players yet</p>
+                    <p className="text-sm mt-2">Waiting for players to join...</p>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="mt-4 text-sm">
-              <span className="text-gray-400">Controlled by:</span>
-              <span className="ml-2 px-3 py-1 rounded-lg font-bold text-white" style={{ backgroundColor: user.color }}>
-                {user.userName}
-              </span>
-            </div>
-          </div>
 
-          {/* Top Players Card */}
-          <div className="glass-card rounded-3xl p-6">
-            <h3 className="text-xl font-bold text-gray-300 mb-4">Top Players</h3>
-            <div className="flex items-center justify-around">
-              {topPlayers.slice(0, 3).map((player, idx) => (
-                <div key={player.id} className="text-center">
-                  <div className="relative mb-3">
+            {/* Top Players Card */}
+            <div className="glass-card rounded-3xl p-6">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-300 mb-4">🏆 Top 3</h3>
+              <div className="flex flex-col gap-3">
+                {topPlayers.slice(0, 3).map((player, idx) => (
+                  <div key={player.id} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'rgba(255, 255, 255, 0.08)' }}>
                     <div
-                      className="w-20 h-20 rounded-full mx-auto flex items-center justify-center text-3xl font-black text-white shadow-xl"
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-black text-white shadow-lg flex-shrink-0"
                       style={{ 
                         backgroundColor: player.color,
-                        boxShadow: `0 8px 24px ${player.color}60`,
-                        border: '3px solid rgba(255, 255, 255, 0.3)'
+                        boxShadow: `0 4px 12px ${player.color}60`
                       }}
                     >
                       {player.name.substring(0, 1).toUpperCase()}
                     </div>
-                    {idx < 3 && (
-                      <div className={`
-                        absolute -bottom-2 left-1/2 transform -translate-x-1/2
-                        w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
-                        ${idx === 0 ? 'bg-yellow-400 text-yellow-900' : idx === 1 ? 'bg-gray-300 text-gray-800' : 'bg-orange-400 text-orange-900'}
-                      `}>
-                        {idx + 1}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-bold px-2 py-1 rounded ${idx === 0 ? 'bg-yellow-400 text-yellow-900' : idx === 1 ? 'bg-gray-300 text-gray-800' : 'bg-orange-400 text-orange-900'}`}>
+                          #{idx + 1}
+                        </span>
+                        <p className="font-bold text-white text-sm truncate">{player.name}</p>
                       </div>
-                    )}
+                      <p className="text-xs text-gray-300 mt-1">{player.blocksOwned} tiles</p>
+                    </div>
                   </div>
-                  <p className="font-bold text-white text-sm mb-1">{player.name}</p>
-                  <p className="text-xs px-2 py-1 rounded-lg font-semibold" style={{ backgroundColor: player.color, color: 'white' }}>
-                    {player.blocksOwned} tiles
-                  </p>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Bottom Action Bar */}
-        <div className="flex items-center justify-center gap-6 mt-8">
-          <Button variant="ghost" className="px-6 py-3 text-base hover:scale-105">
-            🔍 Zoom
-          </Button>
-          <Button
-            variant="secondary"
-            className="px-6 py-3 text-base"
-            style={{
-              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-              boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)',
-              border: 'none'
-            }}
-          >
-            🛡️ Cooldown Active
-          </Button>
-          <Button variant="ghost" className="px-6 py-3 text-base hover:scale-105">
-            📊 Stats
-          </Button>
         </div>
       </div>
     </div>

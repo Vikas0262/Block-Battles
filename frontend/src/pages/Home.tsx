@@ -64,17 +64,13 @@ export const Home: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full text-white overflow-hidden relative" style={{ backgroundColor: '#0A0A0A' }}>
+    <div className="min-h-screen w-full text-white overflow-hidden relative" style={{ backgroundColor: '#1a1a2e' }}>
       
 
       {/* Header with logo */}
       <div className="relative z-10 pt-12 px-6 text-center">
         <div className="flex items-center justify-center gap-4">
-          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 flex items-center justify-center shadow-2xl border-2 border-white/20">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
+          
           <span className="text-4xl font-bold bg-gradient-to-r from-pink-400 via-red-400 to-orange-400 bg-clip-text text-transparent">BlockBattles</span>
         </div>
       </div>
@@ -93,10 +89,10 @@ export const Home: React.FC = () => {
           {/* Description - 4 lines */}
           <div className="text-center mb-16 max-w-8xl mx-auto">
             <p className="text-xl lg:text-2xl text-gray-200 leading-relaxed mb-5 font-medium">
-              Compete with players worldwide in real-time. Claim grid cells, build your empire, and dominate the leaderboard.
+              Compete in real-time against players worldwide. Race to claim blocks on a 10x10 grid and build your territory.
             </p>
             <p className="text-lg lg:text-xl text-gray-300 leading-relaxed font-normal">
-              Fast-paced, strategic gameplay with instant synchronization. No login required, just enter your name and start playing.
+              Join instantly with your name, claim blocks with precision, and climb the leaderboard. Real-time synchronization ensures fair competitive gameplay with instant updates.
             </p>
           </div>
 

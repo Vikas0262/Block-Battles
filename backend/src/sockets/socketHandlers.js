@@ -13,8 +13,10 @@ const userColorMap = new Map();
 // Maps for session and reconnection management
 const sessionMap = new Map(); // sessionId -> socketId
 const reconnectionSessions = new Map(); // userId -> { timeout }
+const playerCooldowns = new Map(); // userId -> cooldownEndTime (ms)
 const DISCONNECT_TIMEOUT = 30000; // 30 seconds
 const SESSION_CLEANUP_INTERVAL = 3600000; // Clean up old sessions every hour
+const COOLDOWN_MS = 500; // 500ms cooldown between claims
 
 // Get unique color for user - avoids conflicts
 function assignUserColor(userId, gridManager) {
@@ -191,9 +193,33 @@ export function initializeSocketHandlers(io, gridManager) {
         return;
       }
 
+      // Validate blockId is integer
+      if (!Number.isInteger(data.blockId) || data.blockId < 0 || data.blockId >= 100) {
+        socket.emit('claimError', { blockId: data.blockId, message: 'Invalid block ID' });
+        return;
+      }
+
+      // Check cooldown
+      const now = Date.now();
+      const cooldownEnd = playerCooldowns.get(socket.id) || 0;
+      
+      if (now < cooldownEnd) {
+        const remainingMs = cooldownEnd - now;
+        socket.emit('claimError', { 
+          blockId: data.blockId, 
+          message: `Cooldown active. Wait ${Math.ceil(remainingMs / 100)}0ms`,
+          remainingCooldown: remainingMs,
+          isCooldown: true
+        });
+        return;
+      }
+
       const result = gridManager.claimBlock(data.blockId, socket.id);
 
       if (result.success) {
+        // Set cooldown for this user
+        playerCooldowns.set(socket.id, now + COOLDOWN_MS);
+        
         io.emit('blockClaimed', {
           blockId: data.blockId,
           owner: socket.id,
@@ -215,6 +241,34 @@ export function initializeSocketHandlers(io, gridManager) {
       socket.emit('leaderboard', gridManager.getLeaderboard());
     });
 
+    // Handle explicit user leave (logout)
+    socket.on('userLeave', (data) => {
+      const userId = data?.userId || socket.id;
+      const user = gridManager.getUser(userId);
+      if (user) {
+        gridManager.removeUser(userId);
+        releaseUserColor(userId);
+        playerCooldowns.delete(userId);
+        reconnectionSessions.delete(userId);
+        
+        // Clean up session map entries
+        for (const [sessionId, sess] of sessionMap.entries()) {
+          const socketId = typeof sess === 'string' ? sess : sess.socketId;
+          if (socketId === userId) {
+            sessionMap.delete(sessionId);
+            break;
+          }
+        }
+        
+        io.emit('userDisconnected', {
+          userId: userId,
+          userName: user.name,
+          totalUsers: gridManager.getAllUsers().length
+        });
+        console.log(`✅ User ${userId} (${user.name}) explicitly left`);
+      }
+    });
+
     socket.on('disconnect', () => {
       const user = gridManager.getUser(socket.id);
       if (user) {
@@ -223,6 +277,7 @@ export function initializeSocketHandlers(io, gridManager) {
           // If user hasn't reconnected after timeout, permanently remove
           gridManager.removeUser(socket.id);
           releaseUserColor(socket.id); // Release color for reuse
+          playerCooldowns.delete(socket.id); // Clean up cooldown
           reconnectionSessions.delete(socket.id);
           
           // Clean up session map entries
