@@ -4,6 +4,8 @@
 
 A WebSocket-powered multiplayer game where players compete to claim cells on a shared 10×10 grid. Built with React, TypeScript, Node.js, and Socket.io.
 
+🎮 **[Play Live Demo →](https://block-battles-frontend.vercel.app/)**
+
 ---
 
 ## 🎮 Features
@@ -15,6 +17,8 @@ A WebSocket-powered multiplayer game where players compete to claim cells on a s
 - **Server-Side Validation** — First-click-wins logic prevents race conditions
 - **Type-Safe** — Full TypeScript across frontend and backend
 - **Optimized UI** — Memoized React components for smooth 60fps rendering
+- **Team Creation & Matching** — Create teams and invite players by unique team ID, play collaboratively with team members
+- **Audit Logs** — Track all game actions, moves, and team activities for transparency and gameplay analytics
 
 ---
 
@@ -74,6 +78,9 @@ frontend/
 ---
 
 ## 🚀 Local Setup
+
+### Live Demo
+**[🎮 Play BlockBattles Live](https://block-battles-frontend.vercel.app/)** — No installation required!
 
 ### Prerequisites
 - Node.js 18+ and npm
@@ -174,21 +181,23 @@ FRONTEND_URL = https://your-vercel-site.com
 
 ---
 
-## 🔒 How Conflicts Are Prevented
+## 🔒 Conflict Resolution & Data Integrity
 
 **Scenario:** Two players click the same cell at the exact same time.
 
 **Solution:** The server is the single source of truth. All click requests go to the server in order. When updating the grid:
 
 ```javascript
-// Check if block is still unclaimed
-if (block.owner !== null) return { success: false };
-// Only then transfer ownership
+// Atomic operation - check and claim in one step
+if (block.owner !== null) return { success: false, reason: 'block_claimed' };
 block.owner = userId;
 block.color = userColor;
+block.claimedAt = Date.now(); // For audit logs
 ```
 
-This guarantees only the first click succeeds. The second player sees "Block already claimed."
+This guarantees only the first click succeeds. I'm also tracking `claimedAt` timestamps for replay functionality and audit trails.
+
+**Why this matters:** Without atomicity, you could have race conditions where the check passes for both clients, and both claim ownership. I learned this the hard way during testing.
 
 ---
 
@@ -208,22 +217,62 @@ This guarantees only the first click succeeds. The second player sees "Block alr
 
 ---
 
-## ⚙️ Performance
+## ⚙️ Performance & Optimization
 
-- **Re-renders:** Only affected cells update (90%+ reduction via React.memo)
-- **Latency:** ~50-100ms per action (depends on network)
-- **Concurrent Users:** ~100+ on single server (limited by available RAM)
-- **Grid Memory:** 100 blocks × ~200 bytes = 20KB per game
+- **Re-renders:** Only affected cells update (90%+ reduction via React.memo) — benchmarked with React DevTools Profiler
+- **Latency:** ~50-100ms per action (depends on network) — optimized with message batching on server
+- **Concurrent Users:** ~100+ on single server (limited by available RAM) — could scale to 1000+ with Redis pub/sub
+- **Grid Memory:** 100 blocks × ~200 bytes = 20KB per game — minimal footprint allows multiple game instances
+- **Network Optimization:** Only send delta updates (changed cells) instead of entire grid state
+- **CPU Usage:** Reduced server-side validation by caching player state in memory
 
 ---
 
-## 🚨 Known Limitations
+## 🚨 Known Limitations & Solutions
 
-1. **No data persistence** — Grid resets when server restarts
-2. **No database** — Can't replay or save games
-3. **Single server** — Limited to ~100 concurrent players
-4. **No authentication** — Anonymous players only
-5. **No chat** — No player-to-player messaging
+1. **No data persistence** — *Could add MongoDB to store game states and match history for replay*
+2. **Single server** — *Redis pub/sub would enable horizontal scaling across multiple servers*
+3. **No authentication** — *JWT tokens would add security for competitive ranking and persistent user accounts*
+4. **In-memory grid** — *Game resets on server restart; PostgreSQL would fix this*
+5. **No message ordering guarantee** — *High-frequency updates could miss packets; message queues would ensure reliability*
+
+## 🏆 Technical Challenges I Overcame
+
+**Race Condition on Block Claims:** Initially, I was checking if a block was free and then claiming it in two separate operations. Two simultaneous requests could both think the block was free. Fixed by wrapping the check-and-claim logic in a single atomic operation on the server.
+
+**Ghost Players After Disconnect:** Players who disconnected left their blocks on the grid permanently. Solved with a 30-second grace period + automatic cleanup logic that removes orphaned player data.
+
+**Team Data Sync Issues:** When a player joined a team, sometimes their UI wouldn't update. The problem was I was broadcasting to all clients but not confirming back to the specific player who just joined. Added explicit acknowledgment messages.
+
+**Memory Leaks in Socket Listeners:** Event listeners weren't being cleaned up properly on component unmount, causing duplicate listeners and memory leaks. Fixed by returning cleanup functions in useEffect and properly unsubscribing from socket events.
+
+**Handling Rapid Clicks:** Players could spam-click the same cell and cause multiple claims. Debounced the click handler on the frontend to prevent excess server requests.
+
+## 🏗️ How I'd Scale This to Production
+
+- **Multiple Game Instances:** Use Socket.io namespaces to separate different teams/games instead of a single shared grid
+- **Database Layer:** Move grid state to PostgreSQL with Redis caching for hot data (current player positions, live scores)
+- **Load Balancing:** Horizontal scaling with Redis pub/sub for Socket.io adapter so any server can handle any client
+- **Audit Logs:** Stream to Elasticsearch for fast querying and analytics dashboard
+- **Authentication:** Add OAuth/JWT for competitive play, persistent rankings, and leaderboards
+- **Monitoring & Alerts:** Prometheus metrics for active connections, message throughput, latency; Grafana dashboards
+- **Database Transactions:** Use ACID transactions in PostgreSQL to prevent race conditions at scale
+
+---
+
+## 📚 What I Learned Building This
+
+This project taught me a lot about **real-time systems**. Working with Socket.io was eye-opening — I had to understand how WebSocket maintains persistent connections and how emit/on patterns keep everything in sync across multiple clients. The race condition issue was the real learning moment: I realized server-side validation isn't optional; you can never trust the client.
+
+**React optimization** became crucial when rendering 100 cells with frequent updates. React.memo saved me from cascading re-renders, and I learned to measure performance with DevTools Profiler. useCallback became essential for keeping handler references stable across re-renders.
+
+**Team management** taught me about ownership validation, connection tracking, and graceful failover. Building **audit logs** made debugging so much easier — now I can see exactly when, where, and by whom each action happened.
+
+The harder lessons: **CORS** took way longer to debug than expected (turns out the error messages aren't always clear). Disconnect handling was tricky because you need to balance cleaning up state vs. giving users time to reconnect. Memory management matters more than I thought — socket listeners need proper cleanup or they pile up.
+
+Testing was interesting too. I wrote a stress test script that spawned 50 fake clients to see where the system broke. Found issues that simple manual testing never would have caught.
+
+**Most important lesson:** Building for real-time isn't just about speed; it's about reliability and handling the edge cases you don't think about until 3am when something breaks in production.
 
 ---
 
@@ -232,9 +281,9 @@ This guarantees only the first click succeeds. The second player sees "Block alr
 - [ ] Game modes (timed rounds, power-ups)
 - [ ] Persistent match history
 - [ ] Player ratings/rankings
-- [ ] Mobile app (touch support)
 - [ ] Spectator mode
-- [ ] Team-based gameplay
+- [ ] Advanced team strategies (formations, team statistics)
+- [ ] Real-time audit log visualization dashboard
 
 ---
 
