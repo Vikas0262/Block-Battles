@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useState, useCallback, useEffect, ReactNode } from 'react';
 
 export interface User {
   userId: string;
@@ -16,18 +16,29 @@ export const UserContext = createContext<UserContextType | undefined>(undefined)
 
 export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUserState] = useState<User | null>(() => {
-    const stored = localStorage.getItem('gridGameUser');
-    return stored ? JSON.parse(stored) : null;
+    // Only read from localStorage on initialization
+    try {
+      const stored = localStorage.getItem('blockBattlesUser');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
   });
+
+  // Debounced localStorage update - only persist when user changes
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('blockBattlesUser', JSON.stringify(user));
+    }
+  }, [user]);
 
   const setUser = useCallback((newUser: User) => {
     setUserState(newUser);
-    localStorage.setItem('gridGameUser', JSON.stringify(newUser));
   }, []);
 
   const clearUser = useCallback(() => {
     setUserState(null);
-    localStorage.removeItem('gridGameUser');
+    localStorage.removeItem('blockBattlesUser');
   }, []);
 
   return (

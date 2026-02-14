@@ -1,4 +1,4 @@
-# GridWars - Real-Time Multiplayer Grid Game
+# BlockBattles - Real-Time Multiplayer Grid Game
 
 A modern web application where players compete to claim grid cells in real-time. Built with React, Node.js, Express, and WebSockets (Socket.io).
 

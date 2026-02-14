@@ -38,17 +38,23 @@ export const Home: React.FC = () => {
     try {
       const socket = getSocket();
       
+      // Set a timeout in case server doesn't respond
+      const timeout = setTimeout(() => {
+        setIsLoading(false);
+        alert('Connection timeout. Please try again.');
+      }, 10000);
+
       // Emit userJoin to register with backend
       socket.emit('userJoin', { userName: userName.trim() });
 
-      // Wait for userInfo response
+      // Wait for userInfo response (only once)
       socket.once('userInfo', (data: any) => {
+        clearTimeout(timeout);
         setUser({
           userId: data.userId,
           userName: data.userName,
           color: data.color,
         });
-        
         navigate('/game');
       });
     } catch (error) {
@@ -69,7 +75,7 @@ export const Home: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <span className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">GridWars</span>
+          <span className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">BlockBattles</span>
         </div>
       </div>
 
@@ -160,7 +166,7 @@ export const Home: React.FC = () => {
       {/* Footer */}
       <div className="z-10 fixed bottom-8 right-8 text-right">
         <p className="text-sm text-gray-400 font-medium">
-          GridWars © 2026 • Competitive Grid Gaming
+          BlockBattles © 2026 • Competitive Grid Gaming
         </p>
       </div>
     </div>

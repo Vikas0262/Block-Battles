@@ -6,14 +6,31 @@ const colors = [
   '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B88B', '#52C41A'
 ];
 
-// Map to store session to socket mapping (sessionId -> oldSocketId)
-const sessionMap = new Map();
-// Map to store reconnection sessions (userId -> { socket, timeout })
-const reconnectionSessions = new Map();
-const DISCONNECT_TIMEOUT = 30000; // 30 seconds before user is permanently removed
+// Track used colors for better distribution
+const usedColors = new Set();
 
-// Get random color for new user
-function getRandomColor() {
+// Maps for session and reconnection management
+const sessionMap = new Map(); // sessionId -> socketId
+const reconnectionSessions = new Map(); // userId -> { timeout }
+const DISCONNECT_TIMEOUT = 30000; // 30 seconds
+const SESSION_CLEANUP_INTERVAL = 3600000; // Clean up old sessions every hour
+
+// Get random color avoiding recently used ones
+function getRandomColor(gridManager) {
+  // Get colors currently in use
+  const activeColors = new Set(
+    gridManager.getAllUsers().map(u => u.color)
+  );
+  
+  // Find available colors
+  const availableColors = colors.filter(c => !activeColors.has(c));
+  
+  // If we have available colors, use one
+  if (availableColors.length > 0) {
+    return availableColors[Math.floor(Math.random() * availableColors.length)];
+  }
+  
+  // Otherwise, return any color (fallback)
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
@@ -26,7 +43,23 @@ function getRandomUsername() {
   return `${adj}${animal}${Math.floor(Math.random() * 100)}`;
 }
 
+// Clean up stale sessions periodically
+function startSessionCleanup() {
+  setInterval(() => {
+    const now = Date.now();
+    for (const [sessionId, data] of sessionMap.entries()) {
+      // Remove sessions older than 24 hours
+      if (data.timestamp && now - data.timestamp > 86400000) {
+        sessionMap.delete(sessionId);
+      }
+    }
+  }, SESSION_CLEANUP_INTERVAL);
+}
+
 export function initializeSocketHandlers(io, gridManager) {
+  // Start periodic session cleanup
+  startSessionCleanup();
+
   io.on('connection', (socket) => {
     // Handle user join (new connection or reconnection)
     socket.on('userJoin', (data) => {
@@ -40,7 +73,8 @@ export function initializeSocketHandlers(io, gridManager) {
       
       // Check if this is a reconnection (sessionId exists and maps to an old socket)
       if (sessionId && sessionMap.has(sessionId)) {
-        const oldUserId = sessionMap.get(sessionId);
+        const oldData = sessionMap.get(sessionId);
+        const oldUserId = typeof oldData === 'string' ? oldData : oldData.socketId;
         const existingUser = gridManager.getUser(oldUserId);
         
         if (existingUser && oldUserId !== newUserId) {
@@ -57,8 +91,11 @@ export function initializeSocketHandlers(io, gridManager) {
           // Transfer blocks from old user to new user
           gridManager.transferUser(oldUserId, newUserId);
           
-          // Update session map
-          sessionMap.set(sessionId, newUserId);
+          // Update session map with timestamp
+          sessionMap.set(sessionId, { 
+            socketId: newUserId, 
+            timestamp: Date.now() 
+          });
           
           const user = gridManager.getUser(newUserId);
           
@@ -89,12 +126,15 @@ export function initializeSocketHandlers(io, gridManager) {
         }
       }
       
-      // New user connection
-      const userColor = getRandomColor();
+      // New user connection - get unique color
+      const userColor = getRandomColor(gridManager);
       
-      // Store session mapping
+      // Store session mapping with timestamp
       if (sessionId) {
-        sessionMap.set(sessionId, newUserId);
+        sessionMap.set(sessionId, { 
+          socketId: newUserId, 
+          timestamp: Date.now() 
+        });
       }
       
       // Clear any pending reconnection timeout for this socket ID
@@ -120,6 +160,7 @@ export function initializeSocketHandlers(io, gridManager) {
         users: gridManager.getAllUsers()
       });
 
+      // Notify other clients
       socket.broadcast.emit('userJoined', {
         userId: newUserId,
         userName: userName,
@@ -167,8 +208,9 @@ export function initializeSocketHandlers(io, gridManager) {
           gridManager.removeUser(socket.id);
           reconnectionSessions.delete(socket.id);
           
-          // Clean up session map
-          for (const [sessionId, socketId] of sessionMap.entries()) {
+          // Clean up session map entries
+          for (const [sessionId, data] of sessionMap.entries()) {
+            const socketId = typeof data === 'string' ? data : data.socketId;
             if (socketId === socket.id) {
               sessionMap.delete(sessionId);
               break;
@@ -190,4 +232,3 @@ export function initializeSocketHandlers(io, gridManager) {
     });
   });
 }
-

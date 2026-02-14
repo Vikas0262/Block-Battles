@@ -1,7 +1,7 @@
 import io from 'socket.io-client';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-const SESSION_STORAGE_KEY = 'gridwars_session_id';
+const SESSION_STORAGE_KEY = 'blockbattles_session_id';
 
 let socket: any = null;
 

@@ -1,4 +1,4 @@
-# GridWars - Complete Setup & Deployment Guide
+# BlockBattles - Complete Setup & Deployment Guide
 
 ## ✅ Quick Start (5 minutes)
 

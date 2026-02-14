@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { getSocket, disconnectSocket, getSessionId, clearSessionId } from '../services/socketService';
@@ -21,6 +21,114 @@ interface GridUser {
 
 const GRID_SIZE = 10;
 const COUNTDOWN_TIME = 15; // seconds
+
+// Memoized Grid Cell Component - prevents unnecessary re-renders
+const GridCell = memo<{
+  block: GridBlock;
+  isSelected: boolean;
+  isClaiming: boolean;
+  onClaim: (blockId: number) => void;
+}>(({ block, isSelected, isClaiming, onClaim }) => {
+  const handleClick = useCallback(() => {
+    if (!block.owner && !isClaiming) {
+      onClaim(block.blockId);
+    }
+  }, [block.owner, block.blockId, isClaiming, onClaim]);
+
+  return (
+    <button
+      onClick={handleClick}
+      className={`
+        rounded-lg flex items-center justify-center font-bold text-white text-lg
+        transition-all duration-200 relative overflow-hidden
+        ${!block.owner ? 'grid-cell cursor-pointer' : 'grid-cell-claimed cursor-default'}
+        ${isSelected ? 'animate-pulse' : ''}
+      `}
+      style={{
+        backgroundColor: block.owner ? block.color : undefined,
+        '--cell-color': block.owner ? `${block.color}80` : undefined,
+      } as React.CSSProperties}
+      title={block.owner ? `${block.userName}'s tile` : 'Click to claim'}
+      disabled={!!block.owner || isClaiming}
+    >
+      {block.owner && (
+        <span className="relative z-10 drop-shadow-lg">
+          {block.userName?.substring(0, 2).toUpperCase()}
+        </span>
+      )}
+      {!block.owner && (
+        <span className="text-indigo-400/40 text-sm">+</span>
+      )}
+    </button>
+  );
+});
+
+GridCell.displayName = 'GridCell';
+
+// Memoized Player Card Component
+const PlayerCard = memo<{
+  player: GridUser;
+  isCurrentUser: boolean;
+  rank: number;
+  showRank: boolean;
+}>(({ player, isCurrentUser, rank, showRank }) => (
+  <div
+    className={`
+      relative p-4 rounded-xl transition-all duration-300
+      ${isCurrentUser 
+        ? 'ring-2 ring-indigo-500 bg-indigo-500/20' 
+        : 'bg-white/5 hover:bg-white/10'
+      }
+    `}
+    style={{
+      border: `1px solid ${isCurrentUser ? '#6366f1' : 'rgba(255, 255, 255, 0.1)'}`
+    }}
+  >
+    <div className="flex items-center gap-3 mb-2">
+      {showRank && (
+        <span className={`
+          text-xl font-black w-8
+          ${rank === 0 ? 'text-yellow-400' : rank === 1 ? 'text-gray-300' : rank === 2 ? 'text-orange-400' : 'text-gray-500'}
+        `}>
+          {rank + 1}.
+        </span>
+      )}
+      <div
+        className="w-10 h-10 rounded-xl shadow-lg flex-shrink-0"
+        style={{ 
+          backgroundColor: player.color,
+          boxShadow: `0 4px 12px ${player.color}60`
+        }}
+      />
+      <div className="flex-1 min-w-0">
+        <p className="font-bold text-white truncate">
+          {player.name}
+          {isCurrentUser && <span className="ml-2 text-xs text-indigo-400">(You)</span>}
+        </p>
+        <p className="text-sm text-gray-400">{player.blocksOwned} tiles</p>
+      </div>
+      <div className="text-right">
+        <p className="text-2xl font-black" style={{ color: player.color }}>
+          {player.blocksOwned}
+        </p>
+      </div>
+    </div>
+
+    {/* Progress Bar */}
+    <div className="h-2 bg-black/30 rounded-full overflow-hidden">
+      <div
+        className="h-full rounded-full transition-all duration-500"
+        style={{
+          width: `${(player.blocksOwned / 100) * 100}%`,
+          background: `linear-gradient(90deg, transparent 0%, ${player.color} 100%)`,
+          boxShadow: `0 0 10px ${player.color}80`
+        }}
+      />
+    </div>
+  </div>
+));
+
+PlayerCard.displayName = 'PlayerCard';
 
 export const Game: React.FC = () => {
   const navigate = useNavigate();
@@ -52,25 +160,30 @@ export const Game: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Initialize socket connection
+  // Initialize socket connection with proper cleanup
   useEffect(() => {
     const socket = getSocket();
+    let isMounted = true;
 
-    socket.on('connect', () => {
-      setIsConnected(true);
-    });
+    const handleConnect = () => {
+      if (isMounted) setIsConnected(true);
+    };
 
-    socket.on('disconnect', () => {
-      setIsConnected(false);
-    });
+    const handleDisconnect = () => {
+      if (isMounted) setIsConnected(false);
+    };
 
-    socket.on('gridState', (data: any) => {
-      setGrid(data.grid);
-      setUsers(data.users);
-      setIsLoading(false);
-    });
+    const handleGridState = (data: any) => {
+      if (isMounted) {
+        setGrid(data.grid);
+        setUsers(data.users);
+        setIsLoading(false);
+      }
+    };
 
-    socket.on('blockClaimed', (data: any) => {
+    const handleBlockClaimed = (data: any) => {
+      if (!isMounted) return;
+      
       setGrid((prevGrid) =>
         prevGrid.map((block) =>
           block.blockId === data.blockId
@@ -84,32 +197,33 @@ export const Game: React.FC = () => {
             : block
         )
       );
+      
       setUsers((prevUsers) =>
         prevUsers.map((u) =>
           u.id === data.owner ? { ...u, blocksOwned: u.blocksOwned + 1 } : u
         )
       );
+      
       setIsClaiming(false);
       setSelectedBlockId(null);
-    });
+    };
 
-    socket.on('claimError', (data: any) => {
+    const handleClaimError = (data: any) => {
+      if (!isMounted) return;
       setClaimError(data.message);
       setIsClaiming(false);
-      setTimeout(() => setClaimError(null), 3000);
-    });
+      setTimeout(() => isMounted && setClaimError(null), 3000);
+    };
 
-    socket.on('claimSuccess', () => {
-      setClaimError(null);
-    });
+    const handleClaimSuccess = () => {
+      if (isMounted) setClaimError(null);
+    };
 
-    socket.on('userJoined', (data: any) => {
+    const handleUserJoined = (data: any) => {
+      if (!isMounted) return;
       setUsers((prevUsers) => {
-        // Check if user already exists (prevent duplicates)
         const userExists = prevUsers.some(u => u.id === data.userId);
-        if (userExists) {
-          return prevUsers;
-        }
+        if (userExists) return prevUsers;
         return [...prevUsers, {
           id: data.userId,
           name: data.userName,
@@ -118,16 +232,14 @@ export const Game: React.FC = () => {
           joinedAt: Date.now(),
         }];
       });
-    });
+    };
 
-    socket.on('userReconnected', (data: any) => {
-      // Remove old socket ID and add new one
+    const handleUserReconnected = (data: any) => {
+      if (!isMounted) return;
       setUsers((prevUsers) => {
         const filtered = prevUsers.filter(u => u.id !== data.oldUserId);
         const userExists = filtered.some(u => u.id === data.newUserId);
-        if (userExists) {
-          return filtered;
-        }
+        if (userExists) return filtered;
         return [...filtered, {
           id: data.newUserId,
           name: data.userName,
@@ -136,9 +248,10 @@ export const Game: React.FC = () => {
           joinedAt: Date.now(),
         }];
       });
-    });
+    };
 
-    socket.on('userDisconnected', (data: any) => {
+    const handleUserDisconnected = (data: any) => {
+      if (!isMounted) return;
       setUsers((prevUsers) => prevUsers.filter((u) => u.id !== data.userId));
       setGrid((prevGrid) =>
         prevGrid.map((block) =>
@@ -147,13 +260,25 @@ export const Game: React.FC = () => {
             : block
         )
       );
-    });
+    };
 
-    socket.on('leaderboard', (data: any) => {
-      setLeaderboard(data);
-    });
+    const handleLeaderboard = (data: any) => {
+      if (isMounted) setLeaderboard(data);
+    };
 
-    // Emit userJoin or reconnect to register with backend
+    // Register all event listeners
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('gridState', handleGridState);
+    socket.on('blockClaimed', handleBlockClaimed);
+    socket.on('claimError', handleClaimError);
+    socket.on('claimSuccess', handleClaimSuccess);
+    socket.on('userJoined', handleUserJoined);
+    socket.on('userReconnected', handleUserReconnected);
+    socket.on('userDisconnected', handleUserDisconnected);
+    socket.on('leaderboard', handleLeaderboard);
+
+    // Emit userJoin or reconnect
     const sessionId = getSessionId();
     const userPayload = { userName: user?.userName || '', sessionId };
     
@@ -161,43 +286,41 @@ export const Game: React.FC = () => {
       socket.emit('userJoin', userPayload);
     } else if (user && !socket.connected) {
       socket.once('connect', () => {
-        socket.emit('userJoin', userPayload);
+        if (isMounted) socket.emit('userJoin', userPayload);
       });
     }
 
+    // Cleanup all event listeners on unmount
     return () => {
-      socket.off('connect');
-      socket.off('disconnect');
-      socket.off('gridState');
-      socket.off('blockClaimed');
-      socket.off('claimError');
-      socket.off('claimSuccess');
-      socket.off('userJoined');
-      socket.off('userReconnected');
-      socket.off('userDisconnected');
-      socket.off('leaderboard');
+      isMounted = false;
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('gridState', handleGridState);
+      socket.off('blockClaimed', handleBlockClaimed);
+      socket.off('claimError', handleClaimError);
+      socket.off('claimSuccess', handleClaimSuccess);
+      socket.off('userJoined', handleUserJoined);
+      socket.off('userReconnected', handleUserReconnected);
+      socket.off('userDisconnected', handleUserDisconnected);
+      socket.off('leaderboard', handleLeaderboard);
     };
   }, [user]);
 
-  // Deduplicate users list to prevent showing same user multiple times
+  // Deduplicate users list (memoized to prevent unnecessary runs)
   useEffect(() => {
+    const seen = new Set<string>();
     setUsers((prevUsers) => {
-      const seen = new Map();
-      const deduplicated = [];
-      
-      // Keep the latest entry for each unique name
-      for (let i = prevUsers.length - 1; i >= 0; i--) {
-        const user = prevUsers[i];
-        if (!seen.has(user.name)) {
-          seen.set(user.name, true);
-          deduplicated.unshift(user);
-        }
-      }
+      const deduplicated = prevUsers.filter((user) => {
+        if (seen.has(user.name)) return false;
+        seen.add(user.name);
+        return true;
+      });
       
       return deduplicated.length !== prevUsers.length ? deduplicated : prevUsers;
     });
-  }, [users.length]);
+  }, [users.length]); // Only run when user count changes
 
+  // Memoized block click handler
   const handleBlockClick = useCallback(
     (blockId: number) => {
       if (isClaming) return;
@@ -233,6 +356,19 @@ export const Game: React.FC = () => {
     return grid.filter((block) => block.owner === user?.userId).length;
   }, [grid, user?.userId]);
 
+  // Memoized sorted users and leaderboard
+  const sortedUsers = useMemo(() => {
+    return [...users].sort((a, b) => b.blocksOwned - a.blocksOwned);
+  }, [users]);
+
+  const topPlayers = useMemo(() => {
+    return sortedUsers.slice(0, 10);
+  }, [sortedUsers]);
+
+  const displayLeaderboard = useMemo(() => {
+    return showLeaderboard ? (leaderboard.length > 0 ? leaderboard : topPlayers) : sortedUsers;
+  }, [showLeaderboard, leaderboard, topPlayers, sortedUsers]);
+
   if (!user) return null;
 
   // Show loading screen
@@ -241,16 +377,12 @@ export const Game: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0A' }}>
         <div className="text-center">
           <div className="w-20 h-20 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-          <h2 className="text-2xl font-bold text-white mb-2">Loading GridWars...</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Loading BlockBattles...</h2>
           <p className="text-gray-400">Initializing battle grid</p>
         </div>
       </div>
     );
   }
-
-  const sortedUsers = [...users].sort((a, b) => b.blocksOwned - a.blocksOwned);
-  const topPlayers = sortedUsers.slice(0, 10);
-  const displayLeaderboard = showLeaderboard ? (leaderboard.length > 0 ? leaderboard : topPlayers) : sortedUsers;
 
   return (
     <div className="min-h-screen" style={{ background: '#0A0A0A' }}>
@@ -262,7 +394,7 @@ export const Game: React.FC = () => {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xl font-bold shadow-lg neon-border">
               ⚡
             </div>
-            <span className="text-2xl font-bold text-white tracking-tight">GridWars</span>
+            <span className="text-2xl font-bold text-white tracking-tight">BlockBattles</span>
           </div>
 
           {/* Center: Player Badge */}
@@ -375,31 +507,13 @@ export const Game: React.FC = () => {
               }}
             >
               {grid.map((block) => (
-                <button
+                <GridCell
                   key={block.blockId}
-                  onClick={() => handleBlockClick(block.blockId)}
-                  disabled={!!block.owner || isClaming}
-                  className={`
-                    rounded-lg flex items-center justify-center font-bold text-white text-lg
-                    transition-all duration-200 relative overflow-hidden
-                    ${!block.owner ? 'grid-cell cursor-pointer' : 'grid-cell-claimed cursor-default'}
-                    ${selectedBlockId === block.blockId ? 'animate-pulse' : ''}
-                  `}
-                  style={{
-                    backgroundColor: block.owner ? block.color : undefined,
-                    '--cell-color': block.owner ? `${block.color}80` : undefined,
-                  } as React.CSSProperties}
-                  title={block.owner ? `${block.userName}'s tile` : 'Click to claim'}
-                >
-                  {block.owner && (
-                    <span className="relative z-10 drop-shadow-lg">
-                      {block.userName?.substring(0, 2).toUpperCase()}
-                    </span>
-                  )}
-                  {!block.owner && (
-                    <span className="text-indigo-400/40 text-sm">+</span>
-                  )}
-                </button>
+                  block={block}
+                  isSelected={selectedBlockId === block.blockId}
+                  isClaiming={isClaming}
+                  onClaim={handleBlockClick}
+                />
               ))}
             </div>
           </div>
@@ -417,61 +531,13 @@ export const Game: React.FC = () => {
 
             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2" style={{ scrollbarGutter: 'stable' }}>
               {displayLeaderboard.map((u, idx) => (
-                <div
+                <PlayerCard
                   key={u.id}
-                  className={`
-                    relative p-4 rounded-xl transition-all duration-300
-                    ${u.id === user?.userId 
-                      ? 'ring-2 ring-indigo-500 bg-indigo-500/20' 
-                      : 'bg-white/5 hover:bg-white/10'
-                    }
-                  `}
-                  style={{
-                    border: `1px solid ${u.id === user?.userId ? '#6366f1' : 'rgba(255, 255, 255, 0.1)'}`
-                  }}
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    {showLeaderboard && (
-                      <span className={`
-                        text-xl font-black w-8
-                        ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-gray-300' : idx === 2 ? 'text-orange-400' : 'text-gray-500'}
-                      `}>
-                        {idx + 1}.
-                      </span>
-                    )}
-                    <div
-                      className="w-10 h-10 rounded-xl shadow-lg flex-shrink-0"
-                      style={{ 
-                        backgroundColor: u.color,
-                        boxShadow: `0 4px 12px ${u.color}60`
-                      }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-white truncate">
-                        {u.name}
-                        {u.id === user?.userId && <span className="ml-2 text-xs text-indigo-400">(You)</span>}
-                      </p>
-                      <p className="text-sm text-gray-400">{u.blocksOwned} tiles</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-black" style={{ color: u.color }}>
-                        {u.blocksOwned}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="h-2 bg-black/30 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${(u.blocksOwned / 100) * 100}%`,
-                        background: `linear-gradient(90deg, transparent 0%, ${u.color} 100%)`,
-                        boxShadow: `0 0 10px ${u.color}80`
-                      }}
-                    />
-                  </div>
-                </div>
+                  player={u}
+                  isCurrentUser={u.id === user?.userId}
+                  rank={idx}
+                  showRank={showLeaderboard}
+                />
               ))}
 
               {displayLeaderboard.length === 0 && (
