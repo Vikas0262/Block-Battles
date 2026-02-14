@@ -102,17 +102,45 @@ export const Home: React.FC = () => {
 
           {/* Form Section */}
           <form onSubmit={handleStartGame} className="flex flex-col gap-6 mb-8">
-            {/* Input */}
+            {/* Input with Icons */}
             <div className="flex flex-col items-center gap-2">
-              <input
-                type="text"
-                value={userName}
-                onChange={handleInputChange}
-                placeholder="Enter your player name"
-                maxLength={20}
-                disabled={isLoading}
-                className="w-full max-w-md px-8 py-5 rounded-2xl bg-white/95 backdrop-blur-xl border-2 border-white/50 hover:border-white/70 focus:border-purple-400 text-gray-900 text-center placeholder-gray-500 text-xl focus:outline-none focus:ring-4 focus:ring-purple-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl font-semibold"
-              />
+              <div className="w-full max-w-md relative">
+                {/* Left Icon - User Profile */}
+                <div className="absolute left-6 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                
+                <input
+                  type="text"
+                  value={userName}
+                  onChange={handleInputChange}
+                  placeholder="Enter your player name"
+                  maxLength={20}
+                  disabled={isLoading}
+                  className="w-full pl-16 pr-16 py-4 rounded-2xl bg-white/10 backdrop-blur-xl border-2 border-white/20 hover:border-white/40 focus:border-purple-400 text-white text-center placeholder-gray-400 text-lg focus:outline-none focus:ring-4 focus:ring-purple-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg font-medium"
+                />
+                
+                {/* Right Icon - Arrow Play (Clickable) */}
+                <button
+                  type="submit"
+                  disabled={isLoading || !isValidName(userName)}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-purple-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                >
+                  {isLoading ? (
+                    <svg className="animate-spin h-6 w-6 text-purple-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              
               {/* Validation Messages */}
               <div className="text-center max-w-md">
                 {userName.length > 0 && (
@@ -132,42 +160,14 @@ export const Home: React.FC = () => {
               </div>
             </div>
 
-            {/* Button */}
-            <div className="flex justify-center">
-              <button
-                type="submit"
-                disabled={isLoading || !isValidName(userName)}
-                className="px-16 py-5 rounded-2xl bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-500 hover:from-purple-600 hover:via-blue-600 hover:to-cyan-600 text-white font-bold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl hover:shadow-[0_0_50px_rgba(168,85,247,0.5)] transform hover:scale-105 hover:-translate-y-1 active:scale-95 text-xl border-2 border-white/20"
-              >
-                {isLoading ? (
-                  <span className="flex items-center justify-center gap-3">
-                    <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Starting Game...
-                  </span>
-                ) : (
-                  'START GAME'
-                )}
-              </button>
-            </div>
-
             {/* Footer Note */}
             <div className="text-center">
               <p className="text-gray-300 text-sm font-medium">
-                📝 Letters only (no numbers) • Minimum 4 characters
+                💡 Enter name to start game
               </p>
             </div>
           </form>
         </div>
-      </div>
-
-      {/* Footer */}
-      <div className="z-10 fixed bottom-8 right-8 text-right">
-        <p className="text-sm text-gray-400 font-medium">
-          BlockBattles © 2026 • Competitive Grid Gaming
-        </p>
       </div>
     </div>
   );

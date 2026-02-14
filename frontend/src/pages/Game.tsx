@@ -20,7 +20,6 @@ interface GridUser {
 }
 
 const GRID_SIZE = 10;
-const COUNTDOWN_TIME = 15; // seconds
 
 // Memoized Grid Cell Component - prevents unnecessary re-renders
 const GridCell = memo<{
@@ -42,22 +41,19 @@ const GridCell = memo<{
         rounded-lg flex items-center justify-center font-bold text-white text-lg
         transition-all duration-200 relative overflow-hidden
         ${!block.owner ? 'grid-cell cursor-pointer' : 'grid-cell-claimed cursor-default'}
-        ${isSelected ? 'animate-pulse' : ''}
       `}
       style={{
         backgroundColor: block.owner ? block.color : undefined,
         '--cell-color': block.owner ? `${block.color}80` : undefined,
+        borderColor: isSelected ? 'rgba(255, 255, 255, 0.6)' : undefined,
       } as React.CSSProperties}
       title={block.owner ? `${block.userName}'s tile` : 'Click to claim'}
       disabled={!!block.owner || isClaiming}
     >
       {block.owner && (
-        <span className="relative z-10 drop-shadow-lg">
+        <span className="relative z-10 drop-shadow-lg text-sm md:text-lg">
           {block.userName?.substring(0, 2).toUpperCase()}
         </span>
-      )}
-      {!block.owner && (
-        <span className="text-indigo-400/40 text-sm">+</span>
       )}
     </button>
   );
@@ -74,7 +70,7 @@ const PlayerCard = memo<{
 }>(({ player, isCurrentUser, rank, showRank }) => (
   <div
     className={`
-      relative p-4 rounded-xl transition-all duration-300
+      relative p-3 rounded-lg transition-all duration-300
       ${isCurrentUser 
         ? 'ring-2 ring-indigo-500 bg-indigo-500/20' 
         : 'bg-white/5 hover:bg-white/10'
@@ -84,31 +80,31 @@ const PlayerCard = memo<{
       border: `1px solid ${isCurrentUser ? '#6366f1' : 'rgba(255, 255, 255, 0.1)'}`
     }}
   >
-    <div className="flex items-center gap-3 mb-2">
+    <div className="flex items-center gap-2 mb-2">
       {showRank && (
         <span className={`
-          text-xl font-black w-8
+          text-lg sm:text-xl font-black w-6 sm:w-8 flex-shrink-0
           ${rank === 0 ? 'text-yellow-400' : rank === 1 ? 'text-gray-300' : rank === 2 ? 'text-orange-400' : 'text-gray-500'}
         `}>
           {rank + 1}.
         </span>
       )}
       <div
-        className="w-10 h-10 rounded-xl shadow-lg flex-shrink-0"
+        className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg sm:rounded-xl shadow-lg flex-shrink-0"
         style={{ 
           backgroundColor: player.color,
           boxShadow: `0 4px 12px ${player.color}60`
         }}
       />
       <div className="flex-1 min-w-0">
-        <p className="font-bold text-white truncate">
+        <p className="font-bold text-white text-xs sm:text-sm truncate">
           {player.name}
-          {isCurrentUser && <span className="ml-2 text-xs text-indigo-400">(You)</span>}
+          {isCurrentUser && <span className="ml-1 text-xs text-indigo-400">(You)</span>}
         </p>
-        <p className="text-sm text-gray-400">{player.blocksOwned} tiles</p>
+        <p className="text-xs text-gray-400">{player.blocksOwned} tiles</p>
       </div>
-      <div className="text-right">
-        <p className="text-2xl font-black" style={{ color: player.color }}>
+      <div className="text-right flex-shrink-0">
+        <p className="text-lg sm:text-2xl font-black" style={{ color: player.color }}>
           {player.blocksOwned}
         </p>
       </div>
@@ -142,7 +138,6 @@ export const Game: React.FC = () => {
   const [claimError, setClaimError] = useState<string | null>(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboard, setLeaderboard] = useState<GridUser[]>([]);
-  const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
 
   // Redirect if no user
   useEffect(() => {
@@ -150,15 +145,6 @@ export const Game: React.FC = () => {
       navigate('/');
     }
   }, [user, navigate]);
-
-  // Countdown timer
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCountdown((prev) => (prev > 0 ? prev - 1 : COUNTDOWN_TIME));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   // Initialize socket connection with proper cleanup
   useEffect(() => {
@@ -387,41 +373,41 @@ export const Game: React.FC = () => {
   return (
     <div className="min-h-screen" style={{ background: '#0A0A0A' }}>
       {/* Top Navigation Bar */}
-      <nav className="glass-nav px-8 lg:px-16 py-4 sticky top-0 z-50">
-        <div className="max-w-[1800px] mx-auto flex items-center justify-between">
+      <nav className="glass-nav px-3 sm:px-6 md:px-8 lg:px-16 py-3 md:py-4 sticky top-0 z-50">
+        <div className="max-w-full lg:max-w-[1800px] mx-auto flex items-center justify-between gap-3 sm:gap-4">
           {/* Left: Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xl font-bold shadow-lg neon-border">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-lg sm:text-xl font-bold shadow-lg neon-border">
               ⚡
             </div>
-            <span className="text-2xl font-bold text-white tracking-tight">BlockBattles</span>
+            <span className="text-lg sm:text-2xl font-bold text-white tracking-tight">BlockBattles</span>
           </div>
 
           {/* Center: Player Badge */}
-          <div className="flex items-center gap-3 px-6 py-3 rounded-2xl glass-card">
+          <div className="hidden sm:flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-2xl glass-card flex-1 justify-center">
             <div
-              className="w-12 h-12 rounded-xl shadow-lg"
+              className="w-10 sm:w-12 h-10 sm:h-12 rounded-lg sm:rounded-xl shadow-lg"
               style={{ 
                 backgroundColor: user.color,
                 boxShadow: `0 4px 12px ${user.color}60`
               }}
             />
-            <div>
-              <p className="text-sm text-gray-400">Player</p>
-              <p className="text-lg font-bold text-white">{user.userName}</p>
+            <div className="hidden md:block">
+              <p className="text-xs text-gray-400">Player</p>
+              <p className="text-sm sm:text-lg font-bold text-white">{user.userName}</p>
             </div>
-            <div className="ml-4 pl-4 border-l border-white/20">
-              <p className="text-sm text-gray-400">Captured</p>
-              <p className="text-lg font-bold text-indigo-400">{currentUserBlocks} tiles</p>
+            <div className="hidden lg:block ml-2 sm:ml-4 pl-2 sm:pl-4 border-l border-white/20">
+              <p className="text-xs text-gray-400">Captured</p>
+              <p className="text-sm sm:text-lg font-bold text-indigo-400">{currentUserBlocks} tiles</p>
             </div>
           </div>
 
           {/* Right: Status & Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Online Status */}
-            <div className="flex items-center gap-2 px-4 py-2 rounded-xl glass-card">
-              <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500 pulse-glow' : 'bg-red-500'}`} />
-              <span className="text-sm font-medium text-white">
+            <div className="hidden sm:flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-lg sm:rounded-xl glass-card">
+              <div className={`w-2 sm:w-3 h-2 sm:h-3 rounded-full ${isConnected ? 'bg-green-500 pulse-glow' : 'bg-red-500'}`} />
+              <span className="text-xs sm:text-sm font-medium text-white">
                 {isConnected ? 'Online' : 'Offline'}
               </span>
             </div>
@@ -429,7 +415,7 @@ export const Game: React.FC = () => {
             {/* Top 10 Button */}
             <button
               onClick={handleLeaderboard}
-              className="px-5 py-2 rounded-xl font-semibold text-white transition-all duration-300"
+              className="px-2 sm:px-5 py-2 rounded-lg sm:rounded-xl font-semibold text-white text-xs sm:text-base transition-all duration-300 whitespace-nowrap"
               style={{
                 background: showLeaderboard 
                   ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)'
@@ -440,51 +426,42 @@ export const Game: React.FC = () => {
                   : '0 2px 8px rgba(251, 191, 36, 0.2)'
               }}
             >
-              🏆 Top 10
+              🏆 <span className="hidden sm:inline">Top 10</span>
             </button>
 
             {/* Exit Button */}
             <button
               onClick={handleLogout}
-              className="px-5 py-2 rounded-xl font-semibold text-white transition-all duration-300"
+              className="px-2 sm:px-5 py-2 rounded-lg sm:rounded-xl font-semibold text-white text-xs sm:text-base transition-all duration-300"
               style={{
                 background: 'rgba(239, 68, 68, 0.15)',
                 border: '1px solid rgba(239, 68, 68, 0.3)',
                 boxShadow: '0 2px 8px rgba(239, 68, 68, 0.2)'
               }}
             >
-              ✕ Exit
+              ✕ <span className="hidden sm:inline">Exit</span>
             </button>
           </div>
         </div>
       </nav>
 
       {/* Main Content */}
-      <div className="max-w-[1800px] mx-auto px-8 lg:px-16 py-8">
+      <div className="max-w-full lg:max-w-[1800px] mx-auto px-3 sm:px-6 md:px-8 lg:px-16 py-4 md:py-8">
         {/* Title Section */}
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-black text-white mb-2 neon-text">
-            Capture the Tiles!
+        <div className="text-center mb-4 md:mb-8">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-2 md:mb-4 neon-text">
+            Conquer the Grid
           </h1>
-          <div className="flex items-center justify-center gap-8 mt-4">
-            <div className="flex items-center gap-2 text-lg">
-              <span className="text-green-400">👥</span>
-              <span className="text-gray-300">Online:</span>
-              <span className="font-bold text-white">{users.length} Players</span>
-            </div>
-            <div className="flex items-center gap-2 text-lg">
-              <span className="text-yellow-400">⏱️</span>
-              <span className="text-gray-300">Countdown:</span>
-              <span className="font-bold text-white">
-                {String(Math.floor(countdown / 60)).padStart(2, '0')}:{String(countdown % 60).padStart(2, '0')}
-              </span>
-            </div>
+          <div className="flex items-center gap-2 text-sm sm:text-base">
+            <span className="text-green-400">👥</span>
+            <span className="text-gray-300">Online:</span>
+            <span className="font-bold text-white">{users.length} Players</span>
           </div>
         </div>
 
         {/* Error Message */}
         {claimError && (
-          <div className="max-w-4xl mx-auto mb-6 px-6 py-4 rounded-2xl text-center font-semibold"
+          <div className="mx-2 sm:mx-4 md:max-w-4xl md:mx-auto mb-4 md:mb-6 px-4 md:px-6 py-3 md:py-4 rounded-xl md:rounded-2xl text-center text-sm sm:text-base font-semibold"
             style={{
               background: 'rgba(239, 68, 68, 0.2)',
               border: '1px solid rgba(239, 68, 68, 0.4)',
@@ -495,15 +472,16 @@ export const Game: React.FC = () => {
         )}
 
         {/* Main Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-4 lg:gap-8">
           {/* Grid Container */}
-          <div className="glass-card rounded-3xl p-8">
+          <div className="glass-card rounded-3xl p-3 sm:p-6 md:p-8">
             <div
-              className="grid gap-2 mx-auto"
+              className="grid gap-1 sm:gap-2 mx-auto"
               style={{
                 gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
-                maxWidth: '700px',
-                aspectRatio: '1 / 1'
+                maxWidth: 'min(90vw, 100%)',
+                width: '100%',
+                aspectRatio: '1 / 1',
               }}
             >
               {grid.map((block) => (
@@ -519,17 +497,17 @@ export const Game: React.FC = () => {
           </div>
 
           {/* Right Sidebar - Leaderboard */}
-          <div className="glass-card rounded-3xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-black text-white">
+          <div className="glass-card rounded-3xl p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+              <h2 className="text-lg sm:text-2xl font-black text-white">
                 {showLeaderboard ? '🏆 LEADERBOARD' : '👥 PLAYERS'}
               </h2>
-              <div className="text-sm text-gray-400">
+              <div className="text-xs sm:text-sm text-gray-400">
                 {displayLeaderboard.length} {displayLeaderboard.length === 1 ? 'Player' : 'Players'}
               </div>
             </div>
 
-            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2" style={{ scrollbarGutter: 'stable' }}>
+            <div className="space-y-2 sm:space-y-3 max-h-[400px] sm:max-h-[600px] overflow-y-auto pr-1 sm:pr-2" style={{ scrollbarGutter: 'stable' }}>
               {displayLeaderboard.map((u, idx) => (
                 <PlayerCard
                   key={u.id}
