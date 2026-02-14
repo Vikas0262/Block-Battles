@@ -1,10 +1,18 @@
 // Socket.io Event Handlers
 // Manages all real-time communication between clients
 
-// Hot pink color palette - unique colors for each player
+// Diverse color palette - unique, distinct lighter colors for each player
 const colors = [
-  '#FF0080', '#FF1493', '#FF33A1', '#FF66B3', '#FF99CC',
-  '#E91E63', '#C2185B', '#AD1457', '#880E4F', '#FF006E'
+  '#64B4FF', // Light Blue
+  '#FF7864', // Light Coral Red
+  '#FFC864', // Light Yellow
+  '#64FF96', // Light Green
+  '#C896FF', // Light Purple
+  '#FF9664', // Light Orange
+  '#64DCDC', // Light Cyan
+  '#FF96C8', // Light Pink
+  '#C8FF64', // Light Lime
+  '#96E6C8'  // Light Teal
 ];
 
 // Track assigned colors: userId -> color
@@ -81,225 +89,251 @@ export function initializeSocketHandlers(io, gridManager) {
   io.on('connection', (socket) => {
     // Handle user join (new connection or reconnection)
     socket.on('userJoin', (data) => {
-      let userName = (data?.userName || '').trim();
-      if (typeof userName !== 'string' || userName.length === 0 || userName.length > 20) {
-        userName = getRandomUsername();
-      }
-      
-      const sessionId = data?.sessionId;
-      const newUserId = socket.id;
-      
-      // Check if this is a reconnection (sessionId exists and maps to an old socket)
-      if (sessionId && sessionMap.has(sessionId)) {
-        const oldData = sessionMap.get(sessionId);
-        const oldUserId = typeof oldData === 'string' ? oldData : oldData.socketId;
-        const existingUser = gridManager.getUser(oldUserId);
+      try {
+        // Validate and sanitize input
+        let userName = (data?.userName || '').trim();
+        if (typeof userName !== 'string' || userName.length === 0 || userName.length > 20) {
+          userName = getRandomUsername();
+        }
         
-        if (existingUser && oldUserId !== newUserId) {
-          // This is a reconnection - transfer ownership
-          console.log(`🔄 User reconnecting: ${oldUserId} -> ${newUserId}`);
+        const sessionId = data?.sessionId;
+        const newUserId = socket.id;
+        
+        // Check if this is a reconnection (sessionId exists and maps to an old socket)
+        if (sessionId && sessionMap.has(sessionId)) {
+          const oldData = sessionMap.get(sessionId);
+          const oldUserId = typeof oldData === 'string' ? oldData : oldData.socketId;
+          const existingUser = gridManager.getUser(oldUserId);
           
-          // Clear any pending reconnection timeout
-          if (reconnectionSessions.has(oldUserId)) {
-            const session = reconnectionSessions.get(oldUserId);
-            clearTimeout(session.timeout);
-            reconnectionSessions.delete(oldUserId);
+          if (existingUser && oldUserId !== newUserId) {
+            // This is a reconnection - transfer ownership
+            
+            // Clear any pending reconnection timeout
+            if (reconnectionSessions.has(oldUserId)) {
+              const session = reconnectionSessions.get(oldUserId);
+              clearTimeout(session.timeout);
+              reconnectionSessions.delete(oldUserId);
+            }
+            
+            // Transfer blocks from old user to new user
+            gridManager.transferUser(oldUserId, newUserId);
+            
+            // Update session map with timestamp
+            sessionMap.set(sessionId, { 
+              socketId: newUserId, 
+              timestamp: Date.now() 
+            });
+            
+            const user = gridManager.getUser(newUserId);
+            
+            // Send user info back
+            socket.emit('userInfo', {
+              userId: newUserId,
+              userName: user.name,
+              color: user.color
+            });
+            
+            // Send current grid state
+            socket.emit('gridState', {
+              grid: gridManager.getGrid(),
+              users: gridManager.getAllUsers()
+            });
+            
+            // Notify all clients about the reconnection
+            io.emit('userReconnected', {
+              oldUserId: oldUserId,
+              newUserId: newUserId,
+              userName: user.name,
+              color: user.color,
+              blocksOwned: user.blocksOwned,
+              totalUsers: gridManager.getAllUsers().length
+            });
+            return;
           }
-          
-          // Transfer blocks from old user to new user
-          gridManager.transferUser(oldUserId, newUserId);
-          
-          // Update session map with timestamp
+        }
+        
+        // New user connection - assign unique color
+        const userColor = assignUserColor(newUserId, gridManager);
+        
+        // Store session mapping with timestamp
+        if (sessionId) {
           sessionMap.set(sessionId, { 
             socketId: newUserId, 
             timestamp: Date.now() 
           });
-          
-          const user = gridManager.getUser(newUserId);
-          
-          // Send user info back
-          socket.emit('userInfo', {
-            userId: newUserId,
-            userName: user.name,
-            color: user.color
-          });
-          
-          // Send current grid state
-          socket.emit('gridState', {
-            grid: gridManager.getGrid(),
-            users: gridManager.getAllUsers()
-          });
-          
-          // Notify all clients about the reconnection
-          io.emit('userReconnected', {
-            oldUserId: oldUserId,
-            newUserId: newUserId,
-            userName: user.name,
-            color: user.color,
-            blocksOwned: user.blocksOwned,
-            totalUsers: gridManager.getAllUsers().length
-          });
-          
-          return;
         }
-      }
-      
-      // New user connection - assign unique color
-      const userColor = assignUserColor(newUserId, gridManager);
-      
-      // Store session mapping with timestamp
-      if (sessionId) {
-        sessionMap.set(sessionId, { 
-          socketId: newUserId, 
-          timestamp: Date.now() 
+        
+        // Clear any pending reconnection timeout for this socket ID
+        if (reconnectionSessions.has(newUserId)) {
+          const session = reconnectionSessions.get(newUserId);
+          clearTimeout(session.timeout);
+          reconnectionSessions.delete(newUserId);
+        }
+
+        // Add user to grid manager
+        gridManager.addUser(newUserId, userName, userColor);
+
+        // Send user info back
+        socket.emit('userInfo', {
+          userId: newUserId,
+          userName: userName,
+          color: userColor
         });
+
+        // Send current grid state to the new user
+        socket.emit('gridState', {
+          grid: gridManager.getGrid(),
+          users: gridManager.getAllUsers()
+        });
+
+        // Notify ALL clients (including the new user) about the new player
+        io.emit('userJoined', {
+          userId: newUserId,
+          userName: userName,
+          color: userColor,
+          totalUsers: gridManager.getAllUsers().length
+        });
+      } catch (error) {
+        console.error('Error in userJoin handler:', error.message);
+        socket.emit('error', { message: 'Server error during join' });
       }
-      
-      // Clear any pending reconnection timeout for this socket ID
-      if (reconnectionSessions.has(newUserId)) {
-        const session = reconnectionSessions.get(newUserId);
-        clearTimeout(session.timeout);
-        reconnectionSessions.delete(newUserId);
-      }
-
-      // Add user to grid manager
-      gridManager.addUser(newUserId, userName, userColor);
-
-      // Send user info back
-      socket.emit('userInfo', {
-        userId: newUserId,
-        userName: userName,
-        color: userColor
-      });
-
-      // Send current grid state to the new user
-      socket.emit('gridState', {
-        grid: gridManager.getGrid(),
-        users: gridManager.getAllUsers()
-      });
-
-      // Notify ALL clients (including the new user) about the new player
-      io.emit('userJoined', {
-        userId: newUserId,
-        userName: userName,
-        color: userColor,
-        totalUsers: gridManager.getAllUsers().length
-      });
     });
 
     socket.on('claimBlock', (data) => {
-      if (!data || typeof data.blockId !== 'number') {
-        socket.emit('claimError', { blockId: null, message: 'Invalid request' });
-        return;
-      }
+      try {
+        if (!data || typeof data.blockId !== 'number') {
+          socket.emit('claimError', { blockId: null, message: 'Invalid request' });
+          return;
+        }
 
-      // Validate blockId is integer
-      if (!Number.isInteger(data.blockId) || data.blockId < 0 || data.blockId >= 100) {
-        socket.emit('claimError', { blockId: data.blockId, message: 'Invalid block ID' });
-        return;
-      }
+        // Validate blockId is integer
+        if (!Number.isInteger(data.blockId) || data.blockId < 0 || data.blockId >= 100) {
+          socket.emit('claimError', { blockId: data.blockId, message: 'Invalid block ID' });
+          return;
+        }
 
-      // Check cooldown
-      const now = Date.now();
-      const cooldownEnd = playerCooldowns.get(socket.id) || 0;
-      
-      if (now < cooldownEnd) {
-        const remainingMs = cooldownEnd - now;
-        socket.emit('claimError', { 
-          blockId: data.blockId, 
-          message: `Cooldown active. Wait ${Math.ceil(remainingMs / 100)}0ms`,
-          remainingCooldown: remainingMs,
-          isCooldown: true
-        });
-        return;
-      }
-
-      const result = gridManager.claimBlock(data.blockId, socket.id);
-
-      if (result.success) {
-        // Set cooldown for this user
-        playerCooldowns.set(socket.id, now + COOLDOWN_MS);
+        // Check cooldown
+        const now = Date.now();
+        const cooldownEnd = playerCooldowns.get(socket.id) || 0;
         
-        io.emit('blockClaimed', {
-          blockId: data.blockId,
-          owner: socket.id,
-          userName: result.block.userName,
-          color: result.block.color,
-          claimedAt: result.block.claimedAt
-        });
-        socket.emit('claimSuccess', { blockId: data.blockId, message: 'Block claimed successfully!' });
-      } else {
-        socket.emit('claimError', {
-          blockId: data.blockId,
-          message: result.message,
-          owner: result.block?.userName
+        if (now < cooldownEnd) {
+          const remainingMs = cooldownEnd - now;
+          socket.emit('claimError', { 
+            blockId: data.blockId, 
+            message: `Cooldown active. Wait ${Math.ceil(remainingMs / 100)}0ms`,
+            remainingCooldown: remainingMs,
+            isCooldown: true
+          });
+          return;
+        }
+
+        const result = gridManager.claimBlock(data.blockId, socket.id);
+
+        if (result.success) {
+          // Set cooldown for this user
+          playerCooldowns.set(socket.id, now + COOLDOWN_MS);
+          
+          io.emit('blockClaimed', {
+            blockId: data.blockId,
+            owner: socket.id,
+            userName: result.block.userName,
+            color: result.block.color,
+            claimedAt: result.block.claimedAt
+          });
+          socket.emit('claimSuccess', { blockId: data.blockId, message: 'Block claimed successfully!' });
+        } else {
+          socket.emit('claimError', {
+            blockId: data.blockId,
+            message: result.message,
+            owner: result.block?.userName
+          });
+        }
+      } catch (error) {
+        console.error('Error in claimBlock handler:', error.message);
+        socket.emit('claimError', { 
+          blockId: data?.blockId, 
+          message: 'Server error processing claim' 
         });
       }
     });
 
     socket.on('getLeaderboard', () => {
-      socket.emit('leaderboard', gridManager.getLeaderboard());
+      try {
+        socket.emit('leaderboard', gridManager.getLeaderboard());
+      } catch (error) {
+        console.error('Error in getLeaderboard handler:', error.message);
+        socket.emit('error', { message: 'Failed to retrieve leaderboard' });
+      }
     });
 
     // Handle explicit user leave (logout)
     socket.on('userLeave', (data) => {
-      const userId = data?.userId || socket.id;
-      const user = gridManager.getUser(userId);
-      if (user) {
-        gridManager.removeUser(userId);
-        releaseUserColor(userId);
-        playerCooldowns.delete(userId);
-        reconnectionSessions.delete(userId);
-        
-        // Clean up session map entries
-        for (const [sessionId, sess] of sessionMap.entries()) {
-          const socketId = typeof sess === 'string' ? sess : sess.socketId;
-          if (socketId === userId) {
-            sessionMap.delete(sessionId);
-            break;
-          }
-        }
-        
-        io.emit('userDisconnected', {
-          userId: userId,
-          userName: user.name,
-          totalUsers: gridManager.getAllUsers().length
-        });
-        console.log(`✅ User ${userId} (${user.name}) explicitly left`);
-      }
-    });
-
-    socket.on('disconnect', () => {
-      const user = gridManager.getUser(socket.id);
-      if (user) {
-        // Don't permanently remove user immediately, set a timeout
-        const timeout = setTimeout(() => {
-          // If user hasn't reconnected after timeout, permanently remove
-          gridManager.removeUser(socket.id);
-          releaseUserColor(socket.id); // Release color for reuse
-          playerCooldowns.delete(socket.id); // Clean up cooldown
-          reconnectionSessions.delete(socket.id);
+      try {
+        const userId = data?.userId || socket.id;
+        const user = gridManager.getUser(userId);
+        if (user) {
+          gridManager.removeUser(userId);
+          releaseUserColor(userId);
+          playerCooldowns.delete(userId);
+          reconnectionSessions.delete(userId);
           
           // Clean up session map entries
-          for (const [sessionId, data] of sessionMap.entries()) {
-            const socketId = typeof data === 'string' ? data : data.socketId;
-            if (socketId === socket.id) {
+          for (const [sessionId, sess] of sessionMap.entries()) {
+            const socketId = typeof sess === 'string' ? sess : sess.socketId;
+            if (socketId === userId) {
               sessionMap.delete(sessionId);
               break;
             }
           }
           
           io.emit('userDisconnected', {
-            userId: socket.id,
+            userId: userId,
             userName: user.name,
             totalUsers: gridManager.getAllUsers().length
           });
-          console.log(`❌ User ${socket.id} (${user.name}) permanently removed after timeout`);
-        }, DISCONNECT_TIMEOUT);
+          console.log('[User] Explicit leave: %s (%s)', userId, user.name);
+        }
+      } catch (error) {
+        console.error('Error in userLeave handler:', error.message);
+        socket.emit('error', { message: 'Error processing leave request' });
+      }
+    });
 
-        // Store the timeout so we can clear it if user reconnects
-        reconnectionSessions.set(socket.id, { timeout });
-        console.log(`⏱️  User ${socket.id} (${user.name}) disconnected, waiting for reconnection...`);
+    socket.on('disconnect', () => {
+      try {
+        const user = gridManager.getUser(socket.id);
+        if (user) {
+          // Don't permanently remove user immediately, set a timeout
+          const timeout = setTimeout(() => {
+            // If user hasn't reconnected after timeout, permanently remove
+            gridManager.removeUser(socket.id);
+            releaseUserColor(socket.id); // Release color for reuse
+            playerCooldowns.delete(socket.id); // Clean up cooldown
+            reconnectionSessions.delete(socket.id);
+            
+            // Clean up session map entries
+            for (const [sessionId, data] of sessionMap.entries()) {
+              const socketId = typeof data === 'string' ? data : data.socketId;
+              if (socketId === socket.id) {
+                sessionMap.delete(sessionId);
+                break;
+              }
+            }
+            
+            io.emit('userDisconnected', {
+              userId: socket.id,
+              userName: user.name,
+              totalUsers: gridManager.getAllUsers().length
+            });
+            console.log('[User] Permanently removed after timeout: %s (%s)', socket.id, user.name);
+          }, DISCONNECT_TIMEOUT);
+
+          // Store the timeout so we can clear it if user reconnects
+          reconnectionSessions.set(socket.id, { timeout });
+          console.log('[User] Disconnected, waiting for reconnection: %s (%s)', socket.id, user.name);
+        }
+      } catch (error) {
+        console.error('Error in disconnect handler:', error.message);
       }
     });
   });

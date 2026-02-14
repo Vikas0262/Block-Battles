@@ -86,7 +86,7 @@ class GridManager {
     this.users.delete(oldUserId);
     this.userBlocks.delete(oldUserId);
 
-    console.log(`✅ Transferred ${userBlockIds.length} blocks from ${oldUserId} to ${newUserId}`);
+    console.log('[Grid] Transferred %d blocks from %s to %s', userBlockIds.length, oldUserId, newUserId);
     return true;
   }
 

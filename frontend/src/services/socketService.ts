@@ -22,12 +22,27 @@ export const clearSessionId = () => {
 
 export const getSocket = () => {
   if (!socket) {
-    socket = io(BACKEND_URL, {
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: 5,
-    });
+    try {
+      socket = io(BACKEND_URL, {
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 5,
+        transports: ['websocket', 'polling'],
+      });
+
+      // Handle connection errors
+      socket.on('connect_error', (error: any) => {
+        console.error('[Socket] Connection error:', error.message);
+      });
+
+      socket.on('error', (error: any) => {
+        console.error('[Socket] Error:', error);
+      });
+    } catch (error) {
+      console.error('[Socket] Failed to create socket connection:', error);
+      throw error;
+    }
   }
   return socket;
 };

@@ -37,6 +37,7 @@ export const Game: React.FC = () => {
   const [claimError, setClaimError] = useState<string | null>(null);
   const [showRulesModal, setShowRulesModal] = useState(true);
   const [cooldownUntil, setCooldownUntil] = useState<number>(0);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   // Redirect if no user
   useEffect(() => {
@@ -45,16 +46,54 @@ export const Game: React.FC = () => {
     }
   }, [user, navigate]);
 
+  // Handle browser back button - show exit confirmation
+  useEffect(() => {
+    // Push a history state to intercept back button
+    window.history.pushState({ gameActive: true }, '');
+
+    const handlePopState = (e: PopStateEvent) => {
+      e.preventDefault();
+      // Back button pressed - show confirmation
+      setShowExitConfirm(true);
+      // Push state again to keep the modal active
+      window.history.pushState({ gameActive: true }, '');
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Show confirmation on browser close/refresh
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [user]);
+
+  // Handle confirmed exit
+  const handleConfirmExit = () => {
+    const socket = getSocket();
+    socket.emit('userLeave', { userId: user?.userId });
+    clearSessionId();
+    clearUser();
+    setShowExitConfirm(false);
+    navigate('/');
+  };
+
+  // Handle cancel exit
+  const handleCancelExit = () => {
+    setShowExitConfirm(false);
+  };
+
   // Initialize socket connection with proper cleanup
   useEffect(() => {
     const socket = getSocket();
     let isMounted = true;
-
-    // Handle browser/tab close
-    const handleBeforeUnload = () => {
-      socket.emit('userLeave', { userId: user?.userId });
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
 
     const handleConnect = () => {
       if (isMounted) setIsConnected(true);
@@ -159,9 +198,16 @@ export const Game: React.FC = () => {
       );
     };
 
+    const handleSocketError = (error: any) => {
+      if (!isMounted) return;
+      console.error('[Game] Socket error:', error);
+      setClaimError('Connection error. Please refresh the page.');
+    };
+
     // Register all event listeners
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
+    socket.on('error', handleSocketError);
     socket.on('gridState', handleGridState);
     socket.on('blockClaimed', handleBlockClaimed);
     socket.on('claimError', handleClaimError);
@@ -185,9 +231,9 @@ export const Game: React.FC = () => {
     // Cleanup all event listeners on unmount
     return () => {
       isMounted = false;
-      window.removeEventListener('beforeunload', handleBeforeUnload);
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
+      socket.off('error', handleSocketError);
       socket.off('gridState', handleGridState);
       socket.off('blockClaimed', handleBlockClaimed);
       socket.off('claimError', handleClaimError);
@@ -270,7 +316,7 @@ export const Game: React.FC = () => {
   // Show loading screen
   if (isLoading || grid.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0A' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#1a1a2e' }}>
         <div className="text-center">
           <div className="w-20 h-20 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
           <h2 className="text-2xl font-bold text-white mb-2">Loading BlockBattles...</h2>
@@ -470,6 +516,43 @@ export const Game: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Exit Confirmation Modal */}
+      {showExitConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-gradient-to-b from-slate-900 to-slate-950 rounded-2xl border border-pink-500/30 shadow-2xl max-w-sm w-full p-8">
+            {/* Icon */}
+            <div className="text-center mb-6">
+              <div className="text-5xl mb-4">⚠️</div>
+              <h2 className="text-2xl font-bold text-white mb-2">Exit Game?</h2>
+              <p className="text-sm text-gray-300">Your player will be removed from the game</p>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex flex-col gap-3">
+              <Button 
+                onClick={handleConfirmExit} 
+                variant="primary" 
+                fullWidth
+                style={{
+                  background: 'rgba(239, 68, 68, 0.2)',
+                  border: '1px solid rgba(239, 68, 68, 0.5)',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+                }}
+              >
+                ✓ Exit Game
+              </Button>
+              <Button 
+                onClick={handleCancelExit} 
+                variant="secondary" 
+                fullWidth
+              >
+                ✕ Stay in Game
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

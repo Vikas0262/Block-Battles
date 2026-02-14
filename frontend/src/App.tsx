@@ -1,18 +1,28 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { UserProvider } from './context/UserContext';
+import { useUser } from './context/UserContext';
 import { Home } from './pages/Home';
 import { Game } from './pages/Game';
+
+// Protected route component - only allow access to /game if user is logged in
+function ProtectedRoute({ element }: { element: React.ReactNode }) {
+  const { user } = useUser();
+  
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return element;
+}
 
 function App() {
   return (
     <Router>
-      <UserProvider>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/game" element={<Game />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </UserProvider>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/game" element={<ProtectedRoute element={<Game />} />} />
+        {/* Catch-all: redirect any unknown routes to home */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Router>
   );
 }

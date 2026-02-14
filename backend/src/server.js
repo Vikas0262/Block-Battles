@@ -37,9 +37,7 @@ const ALLOWED_ORIGINS = [
     [])
 ];
 
-console.log('✓ Configuration loaded:', { PORT, NODE_ENV });
-console.log('✓ FRONTEND_URL:', FRONTEND_URL);
-console.log('✓ Allowed origins:', ALLOWED_ORIGINS);
+console.log('[Config] NODE_ENV=%s, PORT=%d, FRONTEND_URL=%s', NODE_ENV, PORT, FRONTEND_URL);
 
 const app = express();
 const httpServer = createServer(app);
@@ -76,7 +74,7 @@ const gridManager = initializeGrid();
 
 // Socket.IO event logging
 io.on('connection', (socket) => {
-  console.log(`✓ Socket.IO client connected: ${socket.id}`);
+  console.log('[Socket] Client connected: %s', socket.id);
 });
 
 io.on('connect_error', (error) => {
@@ -92,8 +90,8 @@ app.get('/api/health', (req, res) => {
 });
 
 // Start server with error handling & graceful shutdown
-const server = httpServer.listen(PORT, () => {
-  console.log(`✓ Server running on port ${PORT} [${NODE_ENV}]`);
+const server = httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log('[Server] Running on port %d [%s]', PORT, NODE_ENV);
 });
 
 // Error handling

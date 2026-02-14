@@ -22,6 +22,11 @@ const GridCell = memo<GridCellProps>(({ block, isSelected, isClaiming, onClaim }
     }
   }, [block.owner, block.blockId, isClaiming, onClaim]);
 
+  // Truncate name: show first 5 chars + "......" if longer
+  const displayName = block.userName && block.userName.length > 5 
+    ? `${block.userName.substring(0, 5)}......`
+    : block.userName;
+
   return (
     <button
       onClick={handleClick}
@@ -44,7 +49,7 @@ const GridCell = memo<GridCellProps>(({ block, isSelected, isClaiming, onClaim }
             {block.userName?.substring(0, 1).toUpperCase()}
           </span>
           <span className="relative z-10 drop-shadow-lg text-xs hidden md:block font-semibold">
-            {block.userName}
+            {displayName}
           </span>
         </>
       )}
