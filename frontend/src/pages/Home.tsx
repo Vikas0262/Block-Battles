@@ -70,12 +70,12 @@ export const Home: React.FC = () => {
       {/* Header with logo */}
       <div className="relative z-10 pt-12 px-6 text-center">
         <div className="flex items-center justify-center gap-4">
-          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 via-blue-500 to-cyan-500 flex items-center justify-center shadow-2xl border-2 border-white/20">
+          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 flex items-center justify-center shadow-2xl border-2 border-white/20">
             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <span className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">BlockBattles</span>
+          <span className="text-4xl font-bold bg-gradient-to-r from-pink-400 via-red-400 to-orange-400 bg-clip-text text-transparent">BlockBattles</span>
         </div>
       </div>
 
@@ -85,7 +85,7 @@ export const Home: React.FC = () => {
           {/* Heading */}
           <h1 className="text-4xl lg:text-8xl font-black text-white text-center mb-10 leading-tight">
             Real-time Grid
-            <span className="block bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent mt-2">
+            <span className="block bg-gradient-to-r from-pink-400 via-red-400 to-orange-400 bg-clip-text text-transparent mt-2">
               Multiplayer Game
             </span>
           </h1>
@@ -119,17 +119,17 @@ export const Home: React.FC = () => {
                   placeholder="Enter your player name"
                   maxLength={20}
                   disabled={isLoading}
-                  className="w-full pl-16 pr-16 py-4 rounded-2xl bg-white/10 backdrop-blur-xl border-2 border-white/20 hover:border-white/40 focus:border-purple-400 text-white text-center placeholder-gray-400 text-lg focus:outline-none focus:ring-4 focus:ring-purple-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg font-medium"
+                  className="w-full pl-16 pr-16 py-4 rounded-2xl bg-white/10 backdrop-blur-xl border-2 border-white/20 hover:border-white/40 focus:border-pink-400 text-white text-center placeholder-gray-400 text-lg focus:outline-none focus:ring-4 focus:ring-pink-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg font-medium"
                 />
                 
                 {/* Right Icon - Arrow Play (Clickable) */}
                 <button
                   type="submit"
                   disabled={isLoading || !isValidName(userName)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-purple-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-pink-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                 >
                   {isLoading ? (
-                    <svg className="animate-spin h-6 w-6 text-purple-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin h-6 w-6 text-pink-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>

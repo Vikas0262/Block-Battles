@@ -69,57 +69,38 @@ const PlayerCard = memo<{
   showRank: boolean;
 }>(({ player, isCurrentUser, rank, showRank }) => (
   <div
-    className={`
-      relative p-3 rounded-lg transition-all duration-300
-      ${isCurrentUser 
-        ? 'ring-2 ring-indigo-500 bg-indigo-500/20' 
-        : 'bg-white/5 hover:bg-white/10'
-      }
-    `}
+    className="p-3 rounded-lg transition-all duration-300 border border-gray-700 hover:border-gray-600 flex items-start gap-3"
     style={{
-      border: `1px solid ${isCurrentUser ? '#6366f1' : 'rgba(255, 255, 255, 0.1)'}`
+      background: 'rgba(255, 255, 255, 0.05)'
     }}
   >
-    <div className="flex items-center gap-2 mb-2">
-      {showRank && (
-        <span className={`
-          text-lg sm:text-xl font-black w-6 sm:w-8 flex-shrink-0
-          ${rank === 0 ? 'text-yellow-400' : rank === 1 ? 'text-gray-300' : rank === 2 ? 'text-orange-400' : 'text-gray-500'}
-        `}>
-          {rank + 1}.
-        </span>
-      )}
-      <div
-        className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg sm:rounded-xl shadow-lg flex-shrink-0"
-        style={{ 
-          backgroundColor: player.color,
-          boxShadow: `0 4px 12px ${player.color}60`
-        }}
-      />
-      <div className="flex-1 min-w-0">
-        <p className="font-bold text-white text-xs sm:text-sm truncate">
-          {player.name}
-          {isCurrentUser && <span className="ml-1 text-xs text-indigo-400">(You)</span>}
-        </p>
-        <p className="text-xs text-gray-400">{player.blocksOwned} tiles</p>
+    {showRank && (
+      <div className="text-sm font-bold text-gray-400 w-6 flex-shrink-0 pt-0.5">
+        #{rank + 1}
       </div>
-      <div className="text-right flex-shrink-0">
-        <p className="text-lg sm:text-2xl font-black" style={{ color: player.color }}>
-          {player.blocksOwned}
-        </p>
-      </div>
-    </div>
+    )}
 
-    {/* Progress Bar */}
-    <div className="h-2 bg-black/30 rounded-full overflow-hidden">
+    <div className="flex items-center gap-3 flex-1">
+      {/* Color Box */}
       <div
-        className="h-full rounded-full transition-all duration-500"
-        style={{
-          width: `${(player.blocksOwned / 100) * 100}%`,
-          background: `linear-gradient(90deg, transparent 0%, ${player.color} 100%)`,
-          boxShadow: `0 0 10px ${player.color}80`
+        className="w-10 h-10 rounded-md flex-shrink-0"
+        style={{ 
+          backgroundColor: player.color
         }}
       />
+      
+      {/* Player Info */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-white truncate">
+          {player.name}
+          {isCurrentUser && <span className="text-xs text-gray-400 ml-2">(You)</span>}
+        </p>
+      </div>
+
+      {/* Points */}
+      <div className="text-right flex-shrink-0">
+        <p className="text-lg font-bold text-white">{player.blocksOwned}</p>
+      </div>
     </div>
   </div>
 ));
@@ -138,6 +119,7 @@ export const Game: React.FC = () => {
   const [claimError, setClaimError] = useState<string | null>(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboard, setLeaderboard] = useState<GridUser[]>([]);
+  const [showRulesModal, setShowRulesModal] = useState(true);
 
   // Redirect if no user
   useEffect(() => {
@@ -292,20 +274,6 @@ export const Game: React.FC = () => {
     };
   }, [user]);
 
-  // Deduplicate users list (memoized to prevent unnecessary runs)
-  useEffect(() => {
-    const seen = new Set<string>();
-    setUsers((prevUsers) => {
-      const deduplicated = prevUsers.filter((user) => {
-        if (seen.has(user.name)) return false;
-        seen.add(user.name);
-        return true;
-      });
-      
-      return deduplicated.length !== prevUsers.length ? deduplicated : prevUsers;
-    });
-  }, [users.length]); // Only run when user count changes
-
   // Memoized block click handler
   const handleBlockClick = useCallback(
     (blockId: number) => {
@@ -362,7 +330,7 @@ export const Game: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0A' }}>
         <div className="text-center">
-          <div className="w-20 h-20 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+          <div className="w-20 h-20 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
           <h2 className="text-2xl font-bold text-white mb-2">Loading BlockBattles...</h2>
           <p className="text-gray-400">Initializing battle grid</p>
         </div>
@@ -372,12 +340,71 @@ export const Game: React.FC = () => {
 
   return (
     <div className="min-h-screen" style={{ background: '#0A0A0A' }}>
+      {/* Rules Modal */}
+      {showRulesModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-gradient-to-b from-slate-900 to-slate-950 rounded-2xl border border-pink-500/30 shadow-2xl max-w-md w-full p-6 sm:p-8">
+            {/* Header */}
+            <div className="text-center mb-6">
+              <h2 className="text-3xl font-black text-white mb-2">Game Rules</h2>
+              <p className="text-sm text-gray-400">Learn how to conquer the grid</p>
+            </div>
+
+            {/* Rules List */}
+            <div className="space-y-4 mb-8">
+              <div className="flex gap-3">
+                <div className="text-2xl flex-shrink-0">🎯</div>
+                <div>
+                  <p className="font-bold text-white text-sm">Claim Cells</p>
+                  <p className="text-xs text-gray-300 mt-1">Click on empty cells to make them yours</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="text-2xl flex-shrink-0">⚡</div>
+                <div>
+                  <p className="font-bold text-white text-sm">First Click Wins</p>
+                  <p className="text-xs text-gray-300 mt-1">Only the first player to click a cell owns it</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="text-2xl flex-shrink-0">🏆</div>
+                <div>
+                  <p className="font-bold text-white text-sm">Earn Points</p>
+                  <p className="text-xs text-gray-300 mt-1">More cells = higher ranking on leaderboard</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="text-2xl flex-shrink-0">👥</div>
+                <div>
+                  <p className="font-bold text-white text-sm">Compete Live</p>
+                  <p className="text-xs text-gray-300 mt-1">Battle with players around the world in real-time</p>
+                </div>
+              </div>
+            </div>
+
+            {/* OK Button */}
+            <button
+              onClick={() => setShowRulesModal(false)}
+              className="w-full py-3 rounded-xl font-bold text-white text-lg transition-all duration-300 bg-white/10 backdrop-blur-xl border-2 border-white/20 hover:border-pink-400 hover:bg-white/20 active:scale-95"
+              style={{
+                boxShadow: '0 4px 12px rgba(255, 0, 128, 0.2)'
+              }}
+            >
+              OK, Let's Play
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Navigation Bar */}
       <nav className="glass-nav px-3 sm:px-6 md:px-8 lg:px-16 py-3 md:py-4 sticky top-0 z-50">
         <div className="max-w-full lg:max-w-[1800px] mx-auto flex items-center justify-between gap-3 sm:gap-4">
           {/* Left: Logo */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-lg sm:text-xl font-bold shadow-lg neon-border">
+            <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-pink-500 to-red-600 flex items-center justify-center text-lg sm:text-xl font-bold shadow-lg neon-border">
               ⚡
             </div>
             <span className="text-lg sm:text-2xl font-bold text-white tracking-tight">BlockBattles</span>
@@ -398,7 +425,7 @@ export const Game: React.FC = () => {
             </div>
             <div className="hidden lg:block ml-2 sm:ml-4 pl-2 sm:pl-4 border-l border-white/20">
               <p className="text-xs text-gray-400">Captured</p>
-              <p className="text-sm sm:text-lg font-bold text-indigo-400">{currentUserBlocks} tiles</p>
+              <p className="text-sm sm:text-lg font-bold text-pink-400">{currentUserBlocks} tiles</p>
             </div>
           </div>
 

@@ -1,13 +1,14 @@
 // Socket.io Event Handlers
 // Manages all real-time communication between clients
 
+// Hot pink color palette - unique colors for each player
 const colors = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
-  '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B88B', '#52C41A'
+  '#FF0080', '#FF1493', '#FF33A1', '#FF66B3', '#FF99CC',
+  '#E91E63', '#C2185B', '#AD1457', '#880E4F', '#FF006E'
 ];
 
-// Track used colors for better distribution
-const usedColors = new Set();
+// Track assigned colors: userId -> color
+const userColorMap = new Map();
 
 // Maps for session and reconnection management
 const sessionMap = new Map(); // sessionId -> socketId
@@ -15,9 +16,14 @@ const reconnectionSessions = new Map(); // userId -> { timeout }
 const DISCONNECT_TIMEOUT = 30000; // 30 seconds
 const SESSION_CLEANUP_INTERVAL = 3600000; // Clean up old sessions every hour
 
-// Get random color avoiding recently used ones
-function getRandomColor(gridManager) {
-  // Get colors currently in use
+// Get unique color for user - avoids conflicts
+function assignUserColor(userId, gridManager) {
+  // If user already has a color assigned, return it
+  if (userColorMap.has(userId)) {
+    return userColorMap.get(userId);
+  }
+  
+  // Get colors currently in use by active users
   const activeColors = new Set(
     gridManager.getAllUsers().map(u => u.color)
   );
@@ -25,13 +31,23 @@ function getRandomColor(gridManager) {
   // Find available colors
   const availableColors = colors.filter(c => !activeColors.has(c));
   
-  // If we have available colors, use one
+  // Pick an available color
+  let assignedColor;
   if (availableColors.length > 0) {
-    return availableColors[Math.floor(Math.random() * availableColors.length)];
+    assignedColor = availableColors[Math.floor(Math.random() * availableColors.length)];
+  } else {
+    // Fallback: use any color (should rarely happen with 10 colors)
+    assignedColor = colors[Math.floor(Math.random() * colors.length)];
   }
   
-  // Otherwise, return any color (fallback)
-  return colors[Math.floor(Math.random() * colors.length)];
+  // Store the color assignment
+  userColorMap.set(userId, assignedColor);
+  return assignedColor;
+}
+
+// Release user color when they disconnect
+function releaseUserColor(userId) {
+  userColorMap.delete(userId);
 }
 
 // Generate random username
@@ -126,8 +142,8 @@ export function initializeSocketHandlers(io, gridManager) {
         }
       }
       
-      // New user connection - get unique color
-      const userColor = getRandomColor(gridManager);
+      // New user connection - assign unique color
+      const userColor = assignUserColor(newUserId, gridManager);
       
       // Store session mapping with timestamp
       if (sessionId) {
@@ -160,8 +176,8 @@ export function initializeSocketHandlers(io, gridManager) {
         users: gridManager.getAllUsers()
       });
 
-      // Notify other clients
-      socket.broadcast.emit('userJoined', {
+      // Notify ALL clients (including the new user) about the new player
+      io.emit('userJoined', {
         userId: newUserId,
         userName: userName,
         color: userColor,
@@ -206,6 +222,7 @@ export function initializeSocketHandlers(io, gridManager) {
         const timeout = setTimeout(() => {
           // If user hasn't reconnected after timeout, permanently remove
           gridManager.removeUser(socket.id);
+          releaseUserColor(socket.id); // Release color for reuse
           reconnectionSessions.delete(socket.id);
           
           // Clean up session map entries
