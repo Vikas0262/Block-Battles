@@ -192,7 +192,7 @@ cd ..
 
 **Backend** — Create `backend/.env`:
 ```bash
-PORT=3001
+PORT=3000
 NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
 ```
