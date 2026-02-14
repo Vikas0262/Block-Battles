@@ -9,10 +9,27 @@ export const Home: React.FC = () => {
   const navigate = useNavigate();
   const { setUser } = useUser();
 
+  // Validation function
+  const isValidName = (name: string): boolean => {
+    // Check if name has at least 4 characters
+    if (name.trim().length < 4) return false;
+    // Check if name contains only letters and spaces (no numbers)
+    if (/\d/.test(name)) return false;
+    return true;
+  };
+
+  // Handle input change - only allow letters and spaces
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Remove any numbers from input
+    const filteredValue = value.replace(/\d/g, '');
+    setUserName(filteredValue);
+  };
+
   const handleStartGame = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!userName.trim()) {
+    if (!isValidName(userName)) {
       return;
     }
 
@@ -25,7 +42,7 @@ export const Home: React.FC = () => {
       socket.emit('userJoin', { userName: userName.trim() });
 
       // Wait for userInfo response
-      socket.once('userInfo', (data) => {
+      socket.once('userInfo', (data: any) => {
         setUser({
           userId: data.userId,
           userName: data.userName,
@@ -41,13 +58,8 @@ export const Home: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 text-white overflow-hidden relative" style={{ backgroundColor: '#0f0f1e' }}>
-      {/* Animated background orbs */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-gradient-to-br from-purple-500 to-blue-600 rounded-full mix-blend-screen filter blur-[120px] opacity-30 animate-pulse"></div>
-        <div className="absolute top-1/2 right-0 w-[600px] h-[600px] bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full mix-blend-screen filter blur-[120px] opacity-25" style={{ animation: 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite', animationDelay: '1s' }}></div>
-        <div className="absolute bottom-0 left-1/3 w-[600px] h-[600px] bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full mix-blend-screen filter blur-[120px] opacity-20" style={{ animation: 'pulse 5s cubic-bezier(0.4, 0, 0.6, 1) infinite', animationDelay: '2s' }}></div>
-      </div>
+    <div className="min-h-screen w-full text-white overflow-hidden relative" style={{ backgroundColor: '#0A0A0A' }}>
+      
 
       {/* Header with logo */}
       <div className="relative z-10 pt-12 px-6 text-center">
@@ -62,10 +74,10 @@ export const Home: React.FC = () => {
       </div>
 
       {/* Main Content Container */}
-      <div className="relative z-10 w-full min-h-screen flex items-center justify-center px-6 py-8">
-        <div className="w-full max-w-3xl">
+      <div className="relative z-10 w-full min-h-screen flex items-center justify-center px-12 lg:px-24 py-8">
+        <div className="w-full max-w-5xl">
           {/* Heading */}
-          <h1 className="text-6xl lg:text-8xl font-black text-white text-center mb-10 leading-tight">
+          <h1 className="text-4xl lg:text-8xl font-black text-white text-center mb-10 leading-tight">
             Real-time Grid
             <span className="block bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent mt-2">
               Multiplayer Game
@@ -73,7 +85,7 @@ export const Home: React.FC = () => {
           </h1>
 
           {/* Description - 4 lines */}
-          <div className="text-center mb-16 max-w-2xl mx-auto">
+          <div className="text-center mb-16 max-w-8xl mx-auto">
             <p className="text-xl lg:text-2xl text-gray-200 leading-relaxed mb-5 font-medium">
               Compete with players worldwide in real-time. Claim grid cells, build your empire, and dominate the leaderboard.
             </p>
@@ -83,25 +95,42 @@ export const Home: React.FC = () => {
           </div>
 
           {/* Form Section */}
-          <form onSubmit={handleStartGame} className="flex flex-col gap-8 mb-8">
+          <form onSubmit={handleStartGame} className="flex flex-col gap-6 mb-8">
             {/* Input */}
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center gap-2">
               <input
                 type="text"
                 value={userName}
-                onChange={(e) => setUserName(e.target.value)}
+                onChange={handleInputChange}
                 placeholder="Enter your player name"
                 maxLength={20}
                 disabled={isLoading}
-                className="w-full max-w-md px-8 py-5 rounded-2xl bg-gradient-to-r from-white/10 to-white/5 backdrop-blur-xl border-2 border-white/30 hover:border-white/50 focus:border-purple-400 text-white text-center placeholder-gray-300 text-xl focus:outline-none focus:ring-4 focus:ring-purple-500/30 transition-all disabled:opacity-50 shadow-2xl font-semibold"
+                className="w-full max-w-md px-8 py-5 rounded-2xl bg-white/95 backdrop-blur-xl border-2 border-white/50 hover:border-white/70 focus:border-purple-400 text-gray-900 text-center placeholder-gray-500 text-xl focus:outline-none focus:ring-4 focus:ring-purple-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl font-semibold"
               />
+              {/* Validation Messages */}
+              <div className="text-center max-w-md">
+                {userName.length > 0 && (
+                  <>
+                    {userName.trim().length < 4 && (
+                      <p className="text-sm text-yellow-400 font-medium">
+                        ⚠️ Name must be at least 4 characters ({userName.trim().length}/4)
+                      </p>
+                    )}
+                    {isValidName(userName) && (
+                      <p className="text-sm text-green-400 font-medium">
+                        ✓ Valid name
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Button */}
             <div className="flex justify-center">
               <button
                 type="submit"
-                disabled={isLoading || !userName.trim()}
+                disabled={isLoading || !isValidName(userName)}
                 className="px-16 py-5 rounded-2xl bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-500 hover:from-purple-600 hover:via-blue-600 hover:to-cyan-600 text-white font-bold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl hover:shadow-[0_0_50px_rgba(168,85,247,0.5)] transform hover:scale-105 hover:-translate-y-1 active:scale-95 text-xl border-2 border-white/20"
               >
                 {isLoading ? (
@@ -120,8 +149,8 @@ export const Home: React.FC = () => {
 
             {/* Footer Note */}
             <div className="text-center">
-              <p className="text-gray-300 text-base font-medium">
-                ℹ️ No login system • Just enter your name to start playing
+              <p className="text-gray-300 text-sm font-medium">
+                📝 Letters only (no numbers) • Minimum 4 characters
               </p>
             </div>
           </form>
@@ -129,7 +158,7 @@ export const Home: React.FC = () => {
       </div>
 
       {/* Footer */}
-      <div className="relative z-10 fixed bottom-8 right-8 text-right">
+      <div className="z-10 fixed bottom-8 right-8 text-right">
         <p className="text-sm text-gray-400 font-medium">
           GridWars © 2026 • Competitive Grid Gaming
         </p>

@@ -6,62 +6,137 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: 'Inter', 'Outfit', system-ui, -apple-system, sans-serif;
 }
 
 html, body, #root {
   width: 100%;
   height: 100%;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-weight: 100;
 }
 
 body {
-  font-family: 'Inter', 'Outfit', system-ui, -apple-system, sans-serif;
-  color: rgba(255, 255, 255, 0.95);
-  background-color: #0f0f1e;
+  color: #e0e7ff;
+  background: #0A0A0A;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Premium scrollbar */
+/* Modern Gaming UI Scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 15, 30, 0.5);
-  border-radius: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.05);
+  background: rgba(11, 15, 26, 0.4);
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(168, 85, 247, 0.6), rgba(59, 130, 246, 0.6));
-  border-radius: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
+  background: linear-gradient(180deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 10px;
+  border: 2px solid rgba(11, 15, 26, 0.4);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(168, 85, 247, 0.8), rgba(59, 130, 246, 0.8));
-  box-shadow: 0 0 20px rgba(168, 85, 247, 0.5);
+  background: linear-gradient(180deg, #818cf8 0%, #a78bfa 100%);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.5);
 }
 
-/* Custom scrollbar for game UI */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
+/* Glassmorphism Effects */
+.glass-card {
+  background: rgba(27, 34, 56, 0.4);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(15, 15, 30, 0.3);
-  border-radius: 10px;
+.glass-nav {
+  background: rgba(11, 15, 26, 0.8);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(168, 85, 247, 0.5), rgba(59, 130, 246, 0.5));
-  border-radius: 10px;
+/* Grid Cell Effects */
+.grid-cell {
+  background: linear-gradient(135deg, #1b2238 0%, #1a1e31 100%);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(99, 102, 241, 0.1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.grid-cell:hover {
+  background: linear-gradient(135deg, #252d45 0%, #242839 100%);
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.3),
+    0 4px 8px rgba(99, 102, 241, 0.3),
+    0 0 20px rgba(99, 102, 241, 0.2);
+  transform: scale(1.05);
+}
+
+.grid-cell-claimed {
+  box-shadow: 
+    inset 0 2px 4px rgba(255, 255, 255, 0.2),
+    0 4px 12px var(--cell-color, rgba(99, 102, 241, 0.5)),
+    0 0 24px var(--cell-color, rgba(99, 102, 241, 0.3));
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Neon Glow Effect */
+.neon-text {
+  text-shadow: 
+    0 0 10px rgba(99, 102, 241, 0.8),
+    0 0 20px rgba(99, 102, 241, 0.6),
+    0 0 30px rgba(99, 102, 241, 0.4);
+}
+
+.neon-border {
+  box-shadow: 
+    0 0 10px rgba(99, 102, 241, 0.5),
+    0 0 20px rgba(99, 102, 241, 0.3),
+    inset 0 0 10px rgba(99, 102, 241, 0.1);
+}
+
+/* Pulse Animation */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.8);
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Button Styles */
+.btn-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
   transition: all 0.3s ease;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(168, 85, 247, 0.7), rgba(59, 130, 246, 0.7));
-  box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
+}
+
+/* Leaderboard Progress Bar */
+.progress-bar {
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    var(--progress-color, #6366f1) 100%
+  );
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.5s ease;
 }
