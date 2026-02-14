@@ -28,7 +28,7 @@ export const getSocket = () => {
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         reconnectionAttempts: 5,
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'],
       });
 
       // Handle connection errors
@@ -38,6 +38,10 @@ export const getSocket = () => {
 
       socket.on('error', (error: any) => {
         console.error('[Socket] Error:', error);
+      });
+
+      socket.on('disconnect', () => {
+        console.log('[Socket] Disconnected from server');
       });
     } catch (error) {
       console.error('[Socket] Failed to create socket connection:', error);
@@ -49,7 +53,13 @@ export const getSocket = () => {
 
 export const disconnectSocket = () => {
   if (socket) {
-    socket.disconnect();
-    socket = null;
+    try {
+      socket.removeAllListeners();
+      socket.disconnect();
+      socket = null;
+    } catch (error) {
+      console.error('[Socket] Error during disconnect:', error);
+      socket = null;
+    }
   }
 };
