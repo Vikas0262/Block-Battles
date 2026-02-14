@@ -1,487 +1,240 @@
 # BlockBattles
 
-**Real-time multiplayer grid combat — claim cells before your opponents do.**
+**Real-time multiplayer grid game — race to claim the most cells.**
 
-A low-latency, high-concurrency multiplayer application demonstrating real-time state synchronization, conflict resolution, and optimized rendering at scale. Players compete to claim cells on a shared 10×10 grid with live leaderboard tracking and persistent session management.
-
----
-
-## 🚀 Live Demo
-
-*Deployed at:* Coming soon (Local deployment available)
+A WebSocket-powered multiplayer game where players compete to claim cells on a shared 10×10 grid. Built with React, TypeScript, Node.js, and Socket.io.
 
 ---
 
-## ✨ Core Features
+## 🎮 Features
 
-- **Real-Time Grid Updates** — Sub-100ms latency for cell claims across all connected players
-- **Multi-User Conflict Handling** — Server-side validation prevents race conditions with first-click-wins logic
-- **Persistent Sessions** — 30-second reconnection grace period preserves owned cells and player color
-- **Live Leaderboard** — Top 10 players ranked by blocks owned, updated in real-time
-- **Smart Color Assignment** — Intelligent color mapping avoids collisions with active players
-- **Optimized Rendering** — Memoized React components minimize re-renders (90%+ reduction)
-- **Type-Safe Codebase** — Full TypeScript across frontend and backend
-- **Modern UI** — Glassmorphism design with neon accents and smooth animations
-- **Session Persistence** — Player data persists across page refreshes via localStorage
-
----
-
-## 🧠 System Design Overview
-
-### Architecture at a Glance
-
-```
-Player 1          Player 2          Player N
-    |                |                |
-    └────────────────┴────────────────┘
-           WebSocket (Socket.io)
-                   |
-        ┌──────────────────────┐
-        │   Express + Node.js  │
-        │    (Realtime Layer)  │
-        └──────────────────────┘
-                   |
-        ┌──────────────────────┐
-        │  Grid State Manager  │
-        │  (In-Memory)         │
-        └──────────────────────┘
-```
-
-### Real-Time Update Flow
-
-1. **Client Action**: User clicks unclaimed cell
-2. **Validation**: Server validates user exists, cell is unclaimed, blockId is valid
-3. **State Update**: Grid ownership + user stats updated atomically
-4. **Broadcast**: All connected clients receive updated grid & user data
-5. **UI Render**: Frontend updates only affected cells (memoized GridCell components)
-
-### Conflict Resolution Strategy
-
-**Problem**: In distributed systems, two clients might click the same cell simultaneously.
-
-**Solution**: Server-side validation ensures only the first `claimBlock` request succeeds:
-
-```javascript
-// gridManager.js - Atomic operation
-const block = this.grid[blockId];
-if (block.owner !== null) {
-  return { success: false, message: 'Block already claimed' };
-}
-// Update happens only if unclaimed
-block.owner = userId;
-block.color = user.color;
-```
-
-**Why This Works**:
-- All claims funnel through single server instance
-- TCP guarantees message order per socket
-- Server is the source of truth
-- Clients optimistically update, server validates
-
-### State Management Approach
-
-**Frontend**: 
-- React Context (`UserContext`) stores user info (ID, name, color)
-- localStorage for persistence (survives page refresh)
-- Re-renders only affected components via React.memo
-
-**Backend**:
-- In-memory grid state (100 blocks linear array, not 2D for efficiency)
-- Inverse indexing: `userId → [blockIds]` for **O(1)** block cleanup on disconnect
-- Session mapping: `sessionId → socketId` for reconnection recovery
-- Automatic cleanup: Stale sessions removed every 24 hours
-
-### Session Reconnection (30-second window)
-
-When a player disconnects:
-1. Server marks disconnection with timestamp
-2. Client can reconnect within 30 seconds
-3. Server transfers all blocks from old socket ID to new socket ID
-4. Player loses no progress; no interruption to gameplay
-
-```javascript
-// Transfer preserves ownership
-gridManager.transferUser(oldUserId, newUserId)
-// All userBlockIds kept, grid blocks reassigned to new socket
-```
+- **Real-Time Grid Updates** — See other players' moves instantly via WebSocket
+- **Live Leaderboard** — Players ranked by blocks owned, updated in real-time
+- **Session Recovery** — 30-second reconnection grace period preserves your cells and color
+- **Smart Color Assignment** — Each player gets a unique color, automatic conflict avoidance
+- **Server-Side Validation** — First-click-wins logic prevents race conditions
+- **Type-Safe** — Full TypeScript across frontend and backend
+- **Optimized UI** — Memoized React components for smooth 60fps rendering
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Frontend UI** | React 19 + TypeScript | Component-based UI with type safety |
-| **Styling** | Tailwind CSS + Custom CSS | Responsive design with glassmorphism |
-| **Build Tool** | Vite | Fast HMR and optimized production builds |
-| **Real-Time** | Socket.io Client | Bidirectional WebSocket communication |
-| **State** | React Context + localStorage | Global state with persistence |
-| **Backend** | Node.js + Express | Lightweight HTTP server |
-| **Real-Time Server** | Socket.io | Pub/sub event system for broadcasts |
-| **Data Store** | In-Memory (Map/Array) | Fast O(1) operations, no DB latency |
+**Frontend:**
+- React 19 + TypeScript
+- Vite (build tool)
+- Tailwind CSS (styling)
+- Socket.io Client (WebSocket)
+- React Router (navigation)
+
+**Backend:**
+- Node.js + Express
+- Socket.io (real-time server)
+- CORS (cross-origin support)
+
+**Data Storage:** In-memory grid state (no database)
+
+---
+
+## ⚡ How Real-Time Works
+
+1. **Player clicks a cell** on their local grid
+2. **Browser sends claim request** via WebSocket to server
+3. **Server validates** — Is the block unclaimed? Does the user exist?
+4. **Transfer ownership** — If valid, update grid state and player stats
+5. **Broadcast to all clients** — All connected players receive updated grid
+6. **UI updates instantly** — Only affected cells re-render (optimized with React.memo)
+
+**Conflict resolution:** If two players click the same cell simultaneously, the server processes them in order. Only the first request succeeds; the second gets rejected.
 
 ---
 
 ## 📦 Project Structure
 
 ```
-Assignment/
-├── backend/
-│   ├── src/
-│   │   ├── server.js              # Express + Socket.io server entry
-│   │   ├── sockets/
-│   │   │   └── socketHandlers.js  # Event handlers (userJoin, claimBlock, etc)
-│   │   └── utils/
-│   │       └── gridManager.js     # Grid state logic, block ownership, leaderboard
-│   ├── package.json               # Dependencies: express, socket.io, cors
-│   └── .env.example
-│
-├── frontend/
-│   ├── src/
-│   │   ├── pages/
-│   │   │   ├── Home.tsx           # Landing page - name input with validation
-│   │   │   └── Game.tsx           # Main game UI - grid, leaderboard, stats
-│   │   ├── context/
-│   │   │   └── UserContext.tsx    # Global user state (id, name, color)
-│   │   ├── components/
-│   │   │   └── [GridCell, etc]    # Memoized components for performance
-│   │   ├── services/
-│   │   │   └── socketService.ts   # Socket.io singleton, connection mgmt
-│   │   ├── App.tsx                # Router (Home → Game)
-│   │   ├── main.tsx               # React DOM mount
-│   │   └── index.css              # Global styles + grid animations
-│   ├── package.json               # Dependencies: react, socket.io-client, tailwind
-│   ├── vite.config.ts             # Vite build configuration
-│   ├── tailwind.config.ts         # Tailwind customization
-│   └── tsconfig.json
-│
-├── README.md (this file)
-├── SETUP_GUIDE.md                 # Detailed setup instructions
-└── .gitignore
+backend/
+  ├── src/
+  │   ├── server.js              # Express + Socket.io server
+  │   ├── sockets/
+  │   │   └── socketHandlers.js  # Real-time event handlers
+  │   └── utils/
+  │       └── gridManager.js     # Grid state & block ownership
+  └── package.json
+
+frontend/
+  ├── src/
+  │   ├── pages/              # Home (join) + Game (play)
+  │   ├── components/         # Grid cells, leaderboard, etc
+  │   ├── context/            # User state management
+  │   ├── services/           # Socket.io connection
+  │   └── App.tsx             # Router
+  └── package.json
 ```
 
 ---
 
-## ⚙️ Installation & Setup
+## 🚀 Local Setup
 
 ### Prerequisites
-- **Node.js** 16+ installed
-- **npm** or **yarn** package manager
-- Git (optional, for version control)
+- Node.js 18+ and npm
 
-### Step 1: Clone or Navigate to Project
+### Step 1: Install Dependencies
+
 ```bash
-cd Assignment
+cd backend && npm install && cd ..
+cd frontend && npm install && cd ..
 ```
 
-### Step 2: Install Backend Dependencies
-```bash
-cd backend
-npm install
-cd ..
-```
-
-### Step 3: Install Frontend Dependencies
-```bash
-cd frontend
-npm install
-cd ..
-```
-
-### Step 4: Configure Environment Variables
+### Step 2: Configure Environment
 
 **Backend** — Create `backend/.env`:
-```bash
+```
 PORT=3000
 NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
 ```
 
 **Frontend** — Create `frontend/.env`:
-```bash
-VITE_BACKEND_URL=http://localhost:3001
+```
+VITE_BACKEND_URL=http://localhost:3000
 ```
 
-### Step 5: Start Both Servers
+### Step 3: Run Both Servers
 
-**Terminal 1 — Backend:**
+**Terminal 1 (Backend):**
 ```bash
 cd backend
 npm run dev
-# Server runs on http://localhost:3001
 ```
 
-**Terminal 2 — Frontend:**
+**Terminal 2 (Frontend):**
 ```bash
 cd frontend
 npm run dev
-# Frontend runs on http://localhost:5173
 ```
 
-### Step 6: Open Your Browser
-Navigate to **`http://localhost:5173`** and start playing!
+Open `http://localhost:5173` in your browser.
 
 ---
 
-## 🔌 Environment Variables
+## 🔧 Environment Variables
 
-### Backend `.env`
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | 3001 | Server port |
-| `NODE_ENV` | development | Environment mode |
-| `FRONTEND_URL` | http://localhost:5173 | CORS whitelist origin |
-
-### Frontend `.env`
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VITE_BACKEND_URL` | http://localhost:3001 | Backend WebSocket server |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` (Backend) | Server port | 3000 |
+| `NODE_ENV` | dev/production mode | development |
+| `FRONTEND_URL` (Backend) | Frontend origin for CORS | http://localhost:5173 |
+| `VITE_BACKEND_URL` (Frontend) | Backend WebSocket server | http://localhost:3000 |
 
 ---
 
-## 🎮 How to Use the App
+## 📤 Deployment
 
-### Player Workflow
+### Frontend (Vercel)
 
-1. **Home Page** → Enter your name (4+ characters, letters only)
-2. **Validation** → Name must be unique-ish, no numbers allowed
-3. **Join Game** → Click "Start Game" button
-4. **Assigned Color** → Server assigns unique color (smart avoidance of collisions)
-5. **Claim Cells** → Click gray cells to claim them (turn your color)
-6. **Real-Time Sync** → See other players' claims instantly
-7. **Check Leaderboard** → View top 10 ranked by blocks owned
-8. **Refresh/Disconnect** → Your color & owned cells persist for 30 seconds
-
-### Game Rules
-
-- Each player has a unique color
-- Unclaimed cells are gray
-- Click cell → claims it with your color
-- Block shows first 2 letters of owner's name
-- Leaderboard updates in real-time
-- No attacking/removing opponent blocks
-- Highest block count wins (bragging rights)
-
----
-
-## 🚀 Deployment
-
-### Frontend Build
 ```bash
 cd frontend
-npm run build
-# Output: frontend/dist/
-# Deploy dist/ to CDN or static host (Vercel, Netlify, AWS S3, etc.)
+npm run build          # Creates dist/ folder
+# Deploy dist/ folder to Vercel
 ```
 
-### Backend Deployment
-```bash
-# Backend is Node.js, runs as-is
-# Option 1: Cloud (Heroku, Railway, Render, AWS EC2)
-npm install --production
-npm start
-
-# Option 2: Docker
-# npm install -g forever
-# forever start src/server.js
+Vercel auto-deploys from GitHub. Set environment variable:
+```
+VITE_BACKEND_URL = https://your-backend.com
 ```
 
-### Environment Variables for Production
-- Update `FRONTEND_URL` to your deployed frontend domain
-- Update backend host in frontend `VITE_BACKEND_URL` 
-- Use environment-specific `.env` files
+### Backend (Railway/Render)
+
+Push code to GitHub. Railway/Render auto-deploys.
+
+Set these environment variables in your hosting dashboard:
+```
+PORT = 3000 (or auto-assigned)
+NODE_ENV = production
+FRONTEND_URL = https://your-vercel-site.com
+```
 
 ---
 
-## 🔐 Security & Performance Notes
+## 🎮 How to Play
 
-### Security
-- ✅ CORS whitelist (not wildcard)
-- ✅ Server-side validation for all claims
-- ✅ WebSocket authentication via session tokens
-- ✅ Input validation (name length, format)
-- ✅ Graceful error handling
+1. **Enter your name** (4+ letters, no numbers)
+2. **Click "Start Game"** — Server assigns you a unique color
+3. **Click gray cells** to claim them — they turn your color
+4. **Watch the leaderboard** — It updates as players claim blocks
+5. **Game never ends** — Keep claiming until you own the most cells!
 
-### Performance Optimizations
-- ✅ React.memo on GridCell & PlayerCard (prevents unnecessary re-renders)
-- ✅ Linear array grid (100 elements) instead of 2D array
-- ✅ Inverse indexing for O(1) block cleanup
-- ✅ Socket.io binary mode option available
-- ✅ Efficient broadcast (only changed data)
-- ✅ Lazy state initialization in context
-
-### Scalability Limits
-- **Current**: ~100+ concurrent users
-- **Bottleneck**: Single Node.js process (in-memory state)
-- **To Scale**: Add Redis session store, distribute grid state across servers, implement player sharding
+**Rules:**
+- 10×10 grid = 100 cells total
+- Each player gets a unique color
+- Unclaimed cells are gray
+- Claimed cells show the first 2 letters of owner's name
+- No attacking/stealing opponent cells
+- If you disconnect and reconnect within 30 seconds, you keep your cells
 
 ---
 
-## 🧠 Design Decisions & Tradeoffs
+## 🔒 How Conflicts Are Prevented
 
-### Decision 1: In-Memory State vs Database
+**Scenario:** Two players click the same cell at the exact same time.
 
-**Choice**: In-memory (Map/Array)
+**Solution:** The server is the single source of truth. All click requests go to the server in order. When updating the grid:
 
-**Tradeoffs**:
-| Pros | Cons |
-|------|------|
-| O(1) operations, <1ms latency | State lost on server restart |
-| No DB library overhead | Limited to available RAM |
-| Simple mental model | Doesn't persist across deployments |
-
-**When to Change**: For production, add Redis for state persistence without sacrificing latency.
-
----
-
-### Decision 2: Linear Array (100 cells) vs 2D Array (10x10)
-
-**Choice**: Single flat array `grid[blockId]` where `blockId = row * 10 + col`
-
-**Why**:
-- Better cache locality (contiguous memory)
-- Simpler iteration (one loop, not nested)
-- Same time complexity O(1), better space efficiency
-
----
-
-### Decision 3: Inverse Indexing for User Blocks
-
-**Choice**: `Map<userId, blockId[]>` alongside main grid
-
-**Benefit**:
 ```javascript
-// When user disconnects, clear their blocks in O(n) where n = user's block count
-// NOT O(100) scanning all blocks
-const userBlocks = userBlockMap.get(userId); // O(1) lookup
-userBlocks.forEach(blockId => resetBlock(blockId)); // O(blocks owned)
+// Check if block is still unclaimed
+if (block.owner !== null) return { success: false };
+// Only then transfer ownership
+block.owner = userId;
+block.color = userColor;
 ```
 
-**Without this**: Would require O(100) scan every disconnect.
+This guarantees only the first click succeeds. The second player sees "Block already claimed."
 
 ---
 
-### Decision 4: 30-Second Reconnection Grace Period
+## 📊 Architecture
 
-**Choice**: Transfer blocks if reconnect within 30 seconds with session ID
-
-**Business Logic**:
-- Protects against accidental disconnects (wifi hiccup, tab refresh)
-- Prevents griefing (intentionally disconnect, take opponent blocks)
-- 30s window = balance between user experience and fairness
-
-**Alternative Rejected**: Instant block loss (frustrating), indefinite grace period (exploitable).
-
----
-
-### Decision 5: Socket.io over Raw WebSocket
-
-**Choice**: Socket.io abstraction layer
-
-**Pros**:
-- Automatic fallback to polling (better compatibility)
-- Built-in reconnection logic
-- Message acknowledgments
-- Room/namespace support
-
-**Minor Con**: Slightly larger payload than raw WebSocket, but event-driven model is worth it.
-
----
-
-### Decision 6: React Context over Redux/Zustand
-
-**Choice**: React Context + useState for user state
-
-**Tradeoffs**:
-| Pros | Cons |
-|------|------|
-| Built-in to React | Re-renders all consumers on update |
-| Minimal boilerplate | Can be problematic for large trees |
-| Sufficient for game state | Not suited for complex nested state |
-
-**Why It Works Here**: Only 1-2 components consume user context, updates are infrequent.
-
----
-
-### Decision 7: Memoized GridCell Component
-
-**Choice**: `React.memo<GridBlock>()` for each cell
-
-**Impact**:
 ```
-Without memo: 100 cells re-render on every grid update = 100 component renders
-With memo: Only affected cells re-render = 1-2 re-renders avg
-
-Result: 90%+ reduction in re-renders
+[Player 1] ──┐
+[Player 2] ──┼──→ [Express + Socket.io Server] ──→ [Grid State (In-Memory)]
+[Player N] ──┘
+     ↑─────────────── Real-time Updates via WebSocket ─────────────────↓
 ```
 
----
-
-### Decision 8: TypeScript Everywhere
-
-**Choice**: Full TS on frontend + ES modules on backend
-
-**Tradeoffs**:
-| Benefit | Cost |
-|---------|------|
-| Catch type errors at compile time | Build step required |
-| Better IDE autocomplete | Slightly longer develop time |
-| Self-documenting code | tsconfig complexity |
-
-**Worth it for**: Multi-player game (state bugs are critical), large codebase.
+- **Server** runs the game logic and owns the grid state
+- **Clients** send actions (click cell) and receive updates (grid changed)
+- **WebSocket** connects players with <100ms latency
+- **No database** — state resets when server restarts
 
 ---
 
-## 🚨 Known Limitations & Future Improvements
+## ⚙️ Performance
 
-### Current Limitations
-1. **Single Server**: In-memory state lost on restart (add Redis)
-2. **No Persistence**: Grid resets (add MongoDB/PostgreSQL)
-3. **No Account System**: Anonymous players only
-4. **No Chat**: No inter-player communication
-5. **100 Players Max**: Would need clustering for higher concurrency
-
-### Potential Improvements
-
-- [ ] **Redux DevTools Integration** — Time-travel debugging for socket events
-- [ ] **Game Modes** — Timed rounds, power-ups, block stealing variants
-- [ ] **Persistence Layer** — PostgreSQL for match history, replays
-- [ ] **Mobile Optimization** — Touch gestures, portrait mode support
-- [ ] **Analytics** — Block claim heatmap, player movement tracking
-- [ ] **Spectator Mode** — Watch live games without claiming blocks
-- [ ] **Guilds/Teams** — Cooperative multi-player teams
-- [ ] **Elo Rating System** — Skill-based ranking
+- **Re-renders:** Only affected cells update (90%+ reduction via React.memo)
+- **Latency:** ~50-100ms per action (depends on network)
+- **Concurrent Users:** ~100+ on single server (limited by available RAM)
+- **Grid Memory:** 100 blocks × ~200 bytes = 20KB per game
 
 ---
 
-## 📸 Screenshots
+## 🚨 Known Limitations
 
-*Coming soon* — Placeholder for UI showcase:
-- Home page with gradient background
-- 10×10 grid with claimed cells
-- Live leaderboard panel
-- Mobile responsiveness demo
-
----
-
-## 🤝 Contributing
-
-This is an assignment project. For feedback or improvements, please open an issue or submit a pull request.
+1. **No data persistence** — Grid resets when server restarts
+2. **No database** — Can't replay or save games
+3. **Single server** — Limited to ~100 concurrent players
+4. **No authentication** — Anonymous players only
+5. **No chat** — No player-to-player messaging
 
 ---
 
+## 🎯 Future Improvements
 
-## 🎯 Project Goals (Achieved)
-
-✅ Real-time multiplayer grid game  
-✅ Demonstrate WebSocket proficiency  
-✅ Clean architecture & code organization  
-✅ Type-safe implementation  
-✅ Optimized rendering performance  
-✅ Professional-grade codebase  
-✅ Proper conflict handling in distributed systems  
+- [ ] Game modes (timed rounds, power-ups)
+- [ ] Persistent match history
+- [ ] Player ratings/rankings
+- [ ] Mobile app (touch support)
+- [ ] Spectator mode
+- [ ] Team-based gameplay
 
 ---
 
