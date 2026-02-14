@@ -80,10 +80,16 @@ export const Game: React.FC = () => {
   const handleConfirmExit = () => {
     const socket = getSocket();
     socket.emit('userLeave', { userId: user?.userId });
-    clearSessionId();
-    clearUser();
-    setShowExitConfirm(false);
-    navigate('/');
+    
+    // Wait a moment to ensure the event is processed by the server
+    // before disconnecting and clearing local state
+    setTimeout(() => {
+      clearSessionId();
+      disconnectSocket();
+      clearUser();
+      setShowExitConfirm(false);
+      navigate('/');
+    }, 100);
   };
 
   // Handle cancel exit
@@ -217,6 +223,11 @@ export const Game: React.FC = () => {
     socket.on('userReconnected', handleUserReconnected);
     socket.on('userDisconnected', handleUserDisconnected);
 
+    // Check if socket is already connected and update state
+    if (socket.connected && isMounted) {
+      setIsConnected(true);
+    }
+
     // Emit userJoin or reconnect
     const sessionId = getSessionId();
     const userPayload = { userName: user?.userName || '', sessionId };
@@ -287,17 +298,19 @@ export const Game: React.FC = () => {
   );
 
   const handleLogout = () => {
-    const socket = getSocket();
-    socket.emit('userLeave', { userId: user?.userId });
-    clearSessionId(); // Clear session on logout
-    disconnectSocket();
-    clearUser();
-    navigate('/');
+    setShowExitConfirm(true);
   };
 
   const currentUserBlocks = useMemo(() => {
     return grid.filter((block) => block.owner === user?.userId).length;
   }, [grid, user?.userId]);
+
+  const topPlayer = useMemo(() => {
+    if (users.length === 0) return null;
+    return users.reduce((max, user) => 
+      user.blocksOwned > max.blocksOwned ? user : max
+    );
+  }, [users]);
 
   if (!user) return null;
 
@@ -343,6 +356,23 @@ export const Game: React.FC = () => {
               <span className="text-gray-300">Online:</span>
               <span className="font-bold text-white">{users.length} Players</span>
             </div>
+            {/* Top Player - Leaderboard */}
+            {topPlayer && (
+              <div className="flex items-center gap-2 text-sm sm:text-base">
+                <span className="text-yellow-400">👑</span>
+                <span className="text-gray-300">Leading:</span>
+                <span className="font-bold text-white">{topPlayer.name}</span>
+                <span className="text-yellow-400 font-bold">{topPlayer.blocksOwned}</span>
+                {/* Top player color indicator */}
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{
+                    backgroundColor: topPlayer.color,
+                    boxShadow: `0 0 8px ${topPlayer.color}80`
+                  }}
+                />
+              </div>
+            )}
             {/* Cooldown Status - Simple Text */}
             <div className="flex items-center gap-2 text-sm sm:text-base">
               <span className="text-gray-300">Status:</span>
@@ -361,13 +391,15 @@ export const Game: React.FC = () => {
           </div>
         </div>
 
-        {/* Error Message */}
+        {/* Error Message - Fixed to Top Right */}
         {claimError && (
-          <div className="mx-2 sm:mx-4 md:max-w-4xl md:mx-auto mb-4 md:mb-6 px-4 md:px-6 py-2 md:py-3 rounded-lg text-center text-sm sm:text-base font-medium"
+          <div className="fixed top-20 right-4 z-50 animate-in slide-in-from-right px-4 md:px-6 py-3 md:py-4 rounded-lg text-sm md:text-base font-medium max-w-xs md:max-w-sm"
             style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              color: '#ffffff'
+              background: 'rgba(255, 255, 255, 0.95)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              color: '#1a1a2e',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+              backdropFilter: 'blur(12px)'
             }}>
             {claimError}
           </div>
