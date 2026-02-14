@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { getSocket, disconnectSocket, getSessionId, clearSessionId } from '../services/socketService';
 import GridCell from '../components/GridCell';
-import PlayerCard from '../components/PlayerCard';
 import RulesDialog from '../components/RulesDialog';
 import Button from '../components/Button';
+import { GameNavbar } from '../components/GameNavbar';
+import { GameSidebar } from '../components/GameSidebar';
 
 interface GridBlock {
   blockId: number;
@@ -298,19 +299,6 @@ export const Game: React.FC = () => {
     return grid.filter((block) => block.owner === user?.userId).length;
   }, [grid, user?.userId]);
 
-  // Memoized sorted users and leaderboard
-  const sortedUsers = useMemo(() => {
-    return [...users].sort((a, b) => b.blocksOwned - a.blocksOwned);
-  }, [users]);
-
-  const topPlayers = useMemo(() => {
-    return sortedUsers.slice(0, 10);
-  }, [sortedUsers]);
-
-  const displayLeaderboard = useMemo(() => {
-    return sortedUsers;
-  }, [sortedUsers]);
-
   if (!user) return null;
 
   // Show loading screen
@@ -331,55 +319,13 @@ export const Game: React.FC = () => {
       <RulesDialog isOpen={showRulesModal} onClose={() => setShowRulesModal(false)} />
 
       {/* Top Navigation Bar */}
-      <nav className="glass-nav px-3 sm:px-6 md:px-8 lg:px-16 py-3 md:py-4 sticky top-0 z-50">
-        <div className="max-w-full lg:max-w-[1800px] mx-auto flex items-center justify-between gap-3 sm:gap-4">
-          {/* Left: Logo */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            
-            <span className="text-lg sm:text-2xl font-bold text-white tracking-tight">BlockBattles</span>
-          </div>
-
-          {/* Right: Player Badge & Status & Actions */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Simple Player Badge - Compact */}
-            <div className="flex items-center gap-2 px-2 sm:px-4 py-2 rounded-lg glass-card" style={{ background: 'rgba(255, 255, 255, 0.08)' }}>
-              <div
-                className="w-8 sm:w-9 h-8 sm:h-9 rounded-md shadow-lg"
-                style={{ 
-                  backgroundColor: user.color,
-                  boxShadow: `0 4px 12px ${user.color}60`
-                }}
-              />
-              <div className="block">
-                <p className="text-xs sm:text-xs text-gray-400">{user.userName}</p>
-                <p className="text-xs sm:text-sm font-bold text-pink-400">{currentUserBlocks} tiles</p>
-              </div>
-            </div>
-
-            {/* Online Status */}
-            <div className="hidden sm:flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-lg sm:rounded-xl glass-card">
-              <div className={`w-2 sm:w-3 h-2 sm:h-3 rounded-full ${isConnected ? 'bg-green-500 pulse-glow' : 'bg-red-500'}`} />
-              <span className="text-xs sm:text-sm font-medium text-white">
-                {isConnected ? 'Online' : 'Offline'}
-              </span>
-            </div>
-
-            {/* Exit Button */}
-            <Button
-              onClick={handleLogout}
-              variant="secondary"
-              className="px-2 sm:px-5 py-2 text-xs sm:text-base"
-              style={{
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.2)'
-              }}
-            >
-              ✕ <span className="hidden sm:inline">Exit</span>
-            </Button>
-          </div>
-        </div>
-      </nav>
+      <GameNavbar
+        userName={user.userName}
+        userColor={user.color}
+        currentUserBlocks={currentUserBlocks}
+        isConnected={isConnected}
+        onExit={handleLogout}
+      />
 
       {/* Main Content */}
       <div className="max-w-full lg:max-w-[1800px] mx-auto px-3 sm:px-6 md:px-8 lg:px-16 py-4 md:py-8">
@@ -453,67 +399,7 @@ export const Game: React.FC = () => {
           </div>
 
           {/* Right Sidebar - Leaderboard & Top Players */}
-          <div className="flex flex-col gap-4 lg:gap-6">
-            {/* Players/Leaderboard Card */}
-            <div className="glass-card rounded-3xl p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
-                <h2 className="text-lg sm:text-2xl font-black text-white">
-                  👥 PLAYERS
-                </h2>
-                <div className="text-xs sm:text-sm text-gray-400">
-                  {displayLeaderboard.length} {displayLeaderboard.length === 1 ? 'Player' : 'Players'}
-                </div>
-              </div>
-
-              <div className="space-y-2 sm:space-y-3 overflow-y-auto pr-1 sm:pr-2" style={{ scrollbarGutter: 'stable', maxHeight: 'calc(100vh - 300px)' }}>
-                {displayLeaderboard.map((u, idx) => (
-                  <PlayerCard
-                    key={u.id}
-                    player={u}
-                    isCurrentUser={u.id === user?.userId}
-                    rank={idx}
-                    showRank={false}
-                  />
-                ))}
-
-                {displayLeaderboard.length === 0 && (
-                  <div className="text-center py-12 text-gray-400">
-                    <p className="text-lg">No players yet</p>
-                    <p className="text-sm mt-2">Waiting for players to join...</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Top Players Card */}
-            <div className="glass-card rounded-3xl p-6">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-300 mb-4">🏆 Top 3</h3>
-              <div className="flex flex-col gap-3">
-                {topPlayers.slice(0, 3).map((player, idx) => (
-                  <div key={player.id} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'rgba(255, 255, 255, 0.08)' }}>
-                    <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-black text-white shadow-lg flex-shrink-0"
-                      style={{ 
-                        backgroundColor: player.color,
-                        boxShadow: `0 4px 12px ${player.color}60`
-                      }}
-                    >
-                      {player.name.substring(0, 1).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-bold px-2 py-1 rounded ${idx === 0 ? 'bg-yellow-400 text-yellow-900' : idx === 1 ? 'bg-gray-300 text-gray-800' : 'bg-orange-400 text-orange-900'}`}>
-                          #{idx + 1}
-                        </span>
-                        <p className="font-bold text-white text-sm truncate">{player.name}</p>
-                      </div>
-                      <p className="text-xs text-gray-300 mt-1">{player.blocksOwned} tiles</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <GameSidebar users={users} currentUserId={user?.userId} />
         </div>
       </div>
 
