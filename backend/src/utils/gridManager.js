@@ -21,7 +21,7 @@ class GridManager {
       grid.push({
         blockId: i,
         owner: null,       // User who owns this block
-        color: '#E0E0E0',  // Default gray for unclaimed
+        color: '#1a1a2e',  // Darker gray for unclaimed
         userName: null,
         claimedAt: null
       });
@@ -45,13 +45,49 @@ class GridManager {
     userBlockIds.forEach(blockId => {
       const block = this.grid[blockId];
       block.owner = null;
-      block.color = '#E0E0E0';
+      block.color = '#1a1a2e';
       block.userName = null;
       block.claimedAt = null;
     });
     
     this.users.delete(userId);
     this.userBlocks.delete(userId);
+  }
+
+  transferUser(oldUserId, newUserId) {
+    // Transfer user data from old socket ID to new socket ID
+    const oldUser = this.users.get(oldUserId);
+    if (!oldUser) {
+      return false;
+    }
+
+    // Create new user entry with same data but new ID
+    this.users.set(newUserId, {
+      id: newUserId,
+      name: oldUser.name,
+      color: oldUser.color,
+      blocksOwned: oldUser.blocksOwned,
+      joinedAt: oldUser.joinedAt
+    });
+
+    // Transfer block ownership
+    const userBlockIds = this.userBlocks.get(oldUserId) || [];
+    this.userBlocks.set(newUserId, [...userBlockIds]);
+
+    // Update grid blocks to point to new owner
+    userBlockIds.forEach(blockId => {
+      const block = this.grid[blockId];
+      if (block && block.owner === oldUserId) {
+        block.owner = newUserId;
+      }
+    });
+
+    // Remove old user
+    this.users.delete(oldUserId);
+    this.userBlocks.delete(oldUserId);
+
+    console.log(`✅ Transferred ${userBlockIds.length} blocks from ${oldUserId} to ${newUserId}`);
+    return true;
   }
 
   claimBlock(blockId, userId) {

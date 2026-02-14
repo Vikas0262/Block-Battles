@@ -66,6 +66,15 @@ export const emitUserJoin = (userName) => {
   }
 };
 
+// Emit reconnect with error handling
+export const emitReconnect = (userId, userName) => {
+  try {
+    getSocket().emit('reconnect', { userId, userName });
+  } catch (error) {
+    console.error('Error reconnecting to game:', error);
+  }
+};
+
 // Emit claim block with error handling
 export const emitClaimBlock = (blockId) => {
   try {

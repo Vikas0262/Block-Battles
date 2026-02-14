@@ -6,7 +6,7 @@ import { initializeSocketHandlers } from './sockets/socketHandlers.js';
 import { initializeGrid } from './utils/gridManager.js';
 
 // Configuration
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
