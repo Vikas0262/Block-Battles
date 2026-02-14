@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { useUser } from './context/UserContext';
 import { Home } from './pages/Home';
 import { Game } from './pages/Game';
@@ -23,6 +24,7 @@ function App() {
         {/* Catch-all: redirect any unknown routes to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Analytics />
     </Router>
   );
 }
