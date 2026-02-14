@@ -28,7 +28,7 @@ export const getSocket = () => {
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         reconnectionAttempts: 5,
-        transports: ['websocket', 'polling'],
+        transports: ['websocket'],
       });
 
       // Handle connection errors

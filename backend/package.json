@@ -4,6 +4,9 @@
   "description": "BlockBattles - Real-time multiplayer grid battle backend",
   "main": "src/server.js",
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js"

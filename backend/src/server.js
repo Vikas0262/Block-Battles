@@ -20,53 +20,26 @@ const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-// Allowed origins - whitelist instead of wildcard for security
-const ALLOWED_ORIGINS = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  FRONTEND_URL,
-  // Support both http and https versions of frontend URL
-  ...(FRONTEND_URL.startsWith('http://') ? 
-    [FRONTEND_URL.replace('http://', 'https://')] : 
-    FRONTEND_URL.startsWith('https://') ? 
-    [FRONTEND_URL.replace('https://', 'http://')] : 
-    []),
-  // Additional origins from environment variable
-  ...(process.env.ADDITIONAL_ORIGINS ? 
-    process.env.ADDITIONAL_ORIGINS.split(',').map(url => url.trim()) : 
-    [])
-];
-
-console.log('[Config] NODE_ENV=%s, PORT=%d, FRONTEND_URL=%s', NODE_ENV, PORT, FRONTEND_URL);
+console.log(`[Config] ENV=${NODE_ENV} PORT=${PORT}`);
 
 const app = express();
 const httpServer = createServer(app);
 
-// Socket.io configuration with CORS
+// Socket.io configuration with CORS - simple and clean
 const io = new Server(httpServer, {
   cors: {
-    origin: (origin, callback) => {
-      const isAllowed = !origin || ALLOWED_ORIGINS.includes(origin);
-      
-      if (isAllowed) {
-        callback(null, true);
-      } else {
-        console.warn(`✗ CORS rejected origin: ${origin}`);
-        console.warn(`  Allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
-        callback(new Error('CORS not allowed'));
-      }
-    },
+    origin: FRONTEND_URL,
     methods: ['GET', 'POST'],
-    credentials: false,
-    transports: ['websocket', 'polling']
+    credentials: false
   },
-  // Allow both WebSocket and polling transports
-  transports: ['websocket', 'polling']
+  transports: ['websocket']
 });
 
-
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: FRONTEND_URL
+}));
+
 app.use(express.json());
 
 // Initialize grid on server start
