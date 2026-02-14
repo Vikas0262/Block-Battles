@@ -1,7 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { getSocket, disconnectSocket, getSessionId, clearSessionId } from '../services/socketService';
+import GridCell from '../components/GridCell';
+import PlayerCard from '../components/PlayerCard';
+import RulesDialog from '../components/RulesDialog';
+import Button from '../components/Button';
 
 interface GridBlock {
   blockId: number;
@@ -20,92 +24,6 @@ interface GridUser {
 }
 
 const GRID_SIZE = 10;
-
-// Memoized Grid Cell Component - prevents unnecessary re-renders
-const GridCell = memo<{
-  block: GridBlock;
-  isSelected: boolean;
-  isClaiming: boolean;
-  onClaim: (blockId: number) => void;
-}>(({ block, isSelected, isClaiming, onClaim }) => {
-  const handleClick = useCallback(() => {
-    if (!block.owner && !isClaiming) {
-      onClaim(block.blockId);
-    }
-  }, [block.owner, block.blockId, isClaiming, onClaim]);
-
-  return (
-    <button
-      onClick={handleClick}
-      className={`
-        rounded-lg flex items-center justify-center font-bold text-white text-lg
-        transition-all duration-200 relative overflow-hidden
-        ${!block.owner ? 'grid-cell cursor-pointer' : 'grid-cell-claimed cursor-default'}
-      `}
-      style={{
-        backgroundColor: block.owner ? block.color : undefined,
-        '--cell-color': block.owner ? `${block.color}80` : undefined,
-        borderColor: isSelected ? 'rgba(255, 255, 255, 0.6)' : undefined,
-      } as React.CSSProperties}
-      title={block.owner ? `${block.userName}'s tile` : 'Click to claim'}
-      disabled={!!block.owner || isClaiming}
-    >
-      {block.owner && (
-        <span className="relative z-10 drop-shadow-lg text-sm md:text-lg">
-          {block.userName?.substring(0, 2).toUpperCase()}
-        </span>
-      )}
-    </button>
-  );
-});
-
-GridCell.displayName = 'GridCell';
-
-// Memoized Player Card Component
-const PlayerCard = memo<{
-  player: GridUser;
-  isCurrentUser: boolean;
-  rank: number;
-  showRank: boolean;
-}>(({ player, isCurrentUser, rank, showRank }) => (
-  <div
-    className="p-3 rounded-lg transition-all duration-300 border border-gray-700 hover:border-gray-600 flex items-start gap-3"
-    style={{
-      background: 'rgba(255, 255, 255, 0.05)'
-    }}
-  >
-    {showRank && (
-      <div className="text-sm font-bold text-gray-400 w-6 flex-shrink-0 pt-0.5">
-        #{rank + 1}
-      </div>
-    )}
-
-    <div className="flex items-center gap-3 flex-1">
-      {/* Color Box */}
-      <div
-        className="w-10 h-10 rounded-md flex-shrink-0"
-        style={{ 
-          backgroundColor: player.color
-        }}
-      />
-      
-      {/* Player Info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-white truncate">
-          {player.name}
-          {isCurrentUser && <span className="text-xs text-gray-400 ml-2">(You)</span>}
-        </p>
-      </div>
-
-      {/* Points */}
-      <div className="text-right flex-shrink-0">
-        <p className="text-lg font-bold text-white">{player.blocksOwned}</p>
-      </div>
-    </div>
-  </div>
-));
-
-PlayerCard.displayName = 'PlayerCard';
 
 export const Game: React.FC = () => {
   const navigate = useNavigate();
@@ -340,64 +258,7 @@ export const Game: React.FC = () => {
 
   return (
     <div className="min-h-screen" style={{ background: '#0A0A0A' }}>
-      {/* Rules Modal */}
-      {showRulesModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-gradient-to-b from-slate-900 to-slate-950 rounded-2xl border border-pink-500/30 shadow-2xl max-w-md w-full p-6 sm:p-8">
-            {/* Header */}
-            <div className="text-center mb-6">
-              <h2 className="text-3xl font-black text-white mb-2">Game Rules</h2>
-              <p className="text-sm text-gray-400">Learn how to conquer the grid</p>
-            </div>
-
-            {/* Rules List */}
-            <div className="space-y-4 mb-8">
-              <div className="flex gap-3">
-                <div className="text-2xl flex-shrink-0">🎯</div>
-                <div>
-                  <p className="font-bold text-white text-sm">Claim Cells</p>
-                  <p className="text-xs text-gray-300 mt-1">Click on empty cells to make them yours</p>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <div className="text-2xl flex-shrink-0">⚡</div>
-                <div>
-                  <p className="font-bold text-white text-sm">First Click Wins</p>
-                  <p className="text-xs text-gray-300 mt-1">Only the first player to click a cell owns it</p>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <div className="text-2xl flex-shrink-0">🏆</div>
-                <div>
-                  <p className="font-bold text-white text-sm">Earn Points</p>
-                  <p className="text-xs text-gray-300 mt-1">More cells = higher ranking on leaderboard</p>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <div className="text-2xl flex-shrink-0">👥</div>
-                <div>
-                  <p className="font-bold text-white text-sm">Compete Live</p>
-                  <p className="text-xs text-gray-300 mt-1">Battle with players around the world in real-time</p>
-                </div>
-              </div>
-            </div>
-
-            {/* OK Button */}
-            <button
-              onClick={() => setShowRulesModal(false)}
-              className="w-full py-3 rounded-xl font-bold text-white text-lg transition-all duration-300 bg-white/10 backdrop-blur-xl border-2 border-white/20 hover:border-pink-400 hover:bg-white/20 active:scale-95"
-              style={{
-                boxShadow: '0 4px 12px rgba(255, 0, 128, 0.2)'
-              }}
-            >
-              OK, Let's Play
-            </button>
-          </div>
-        </div>
-      )}
+      <RulesDialog isOpen={showRulesModal} onClose={() => setShowRulesModal(false)} />
 
       {/* Top Navigation Bar */}
       <nav className="glass-nav px-3 sm:px-6 md:px-8 lg:px-16 py-3 md:py-4 sticky top-0 z-50">
@@ -440,9 +301,10 @@ export const Game: React.FC = () => {
             </div>
 
             {/* Top 10 Button */}
-            <button
+            <Button
               onClick={handleLeaderboard}
-              className="px-2 sm:px-5 py-2 rounded-lg sm:rounded-xl font-semibold text-white text-xs sm:text-base transition-all duration-300 whitespace-nowrap"
+              variant="secondary"
+              className="px-2 sm:px-5 py-2 text-xs sm:text-base whitespace-nowrap"
               style={{
                 background: showLeaderboard 
                   ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)'
@@ -454,12 +316,13 @@ export const Game: React.FC = () => {
               }}
             >
               🏆 <span className="hidden sm:inline">Top 10</span>
-            </button>
+            </Button>
 
             {/* Exit Button */}
-            <button
+            <Button
               onClick={handleLogout}
-              className="px-2 sm:px-5 py-2 rounded-lg sm:rounded-xl font-semibold text-white text-xs sm:text-base transition-all duration-300"
+              variant="secondary"
+              className="px-2 sm:px-5 py-2 text-xs sm:text-base"
               style={{
                 background: 'rgba(239, 68, 68, 0.15)',
                 border: '1px solid rgba(239, 68, 68, 0.3)',
@@ -467,7 +330,7 @@ export const Game: React.FC = () => {
               }}
             >
               ✕ <span className="hidden sm:inline">Exit</span>
-            </button>
+            </Button>
           </div>
         </div>
       </nav>
@@ -616,19 +479,23 @@ export const Game: React.FC = () => {
 
         {/* Bottom Action Bar */}
         <div className="flex items-center justify-center gap-6 mt-8">
-          <button className="px-6 py-3 rounded-2xl glass-card font-semibold text-white transition-all duration-300 hover:scale-105">
+          <Button variant="ghost" className="px-6 py-3 text-base hover:scale-105">
             🔍 Zoom
-          </button>
-          <button className="px-6 py-3 rounded-2xl font-semibold text-white transition-all duration-300"
+          </Button>
+          <Button
+            variant="secondary"
+            className="px-6 py-3 text-base"
             style={{
               background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-              boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)'
-            }}>
+              boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)',
+              border: 'none'
+            }}
+          >
             🛡️ Cooldown Active
-          </button>
-          <button className="px-6 py-3 rounded-2xl glass-card font-semibold text-white transition-all duration-300 hover:scale-105">
+          </Button>
+          <Button variant="ghost" className="px-6 py-3 text-base hover:scale-105">
             📊 Stats
-          </button>
+          </Button>
         </div>
       </div>
     </div>
